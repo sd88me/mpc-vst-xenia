@@ -321,7 +321,12 @@ void emu_main(Inst *in) {
                 apply_loaded(in, c.dump, -1, 0);
                 break;
             case C_INIT:
-                for (int i = 0; i < XT_NUM_PARAMS; i++) { pending[g_xt_params[i].idx] = (uint8_t)g_xt_params[i].def; dirty[g_xt_params[i].idx] = true; }
+                for (int i = 0; i < XT_NUM_PARAMS; i++) {
+                    pending[g_xt_params[i].idx] = (uint8_t)g_xt_params[i].def;
+                    dirty[g_xt_params[i].idx] = true;
+                    in->raw[g_xt_params[i].idx].store((uint8_t)g_xt_params[i].def);     // the value cache the UI and the state read
+                }
+                in->bump();
                 break;
             }
         }
@@ -394,7 +399,8 @@ void emu_main(Inst *in) {
     // first sound, and a short run so the ring starts full
     ask_for_sound(in->bank.load(), in->preset.load());
     in->set_status("Warming up...");
-    for (int i = 0; i < kTargetFill / kBlock + 2 && !in->stop; i++) produce(true);
+    // (the first sound's edit buffer must have arrived, or the first notes play the ROM's power-on state: silence)
+    for (int i = 0; (i < kTargetFill / kBlock + 2 || (want.active && i < 4000)) && !in->stop; i++) produce(true);
     in->ready = true;
     in->set_status("Ready");
     xlog("[emu] ready");
