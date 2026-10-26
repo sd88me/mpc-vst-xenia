@@ -1,0 +1,7 @@
+/* Xenia: the look of gearmulator's Xenia skin (xtDefault, theusualsuspects): amber chassis, blue selector bars, black knobs.
+   Colours come from the layout's theme_* lines. Liberation Sans (SIL OFL 1.1, vst/fonts/) stands in for the skin's Arial. */
+@font-face { font-family: "Liberation Sans"; font-weight: 700; src: url("fonts/LiberationSans-Bold.ttf"); }
+:root { --font: "Liberation Sans", "Titillium Web", sans-serif; --title-font: "Liberation Sans", sans-serif;
+        --title-size: 20px; --label-size: 15px; --radius: 3px; --sheen: 0.04; --button-size: 16px; --seg-size: 15px; }
+text { font-weight: 700; }
+.frame-title, .td3 .frame-title { fill: var(--accent); font-style: italic; letter-spacing: 0; }
