@@ -1,0 +1,2 @@
+Put your own Waldorf Microwave XT ROM here: the 256 kB ".bin" firmware image (it starts with the bytes C0 DE), or its two 128 kB halves, or
+an OS update ".mid" next to a full ROM. Xenia finds it when the plugin starts. No ROM is included with Xenia and none may be shared.
