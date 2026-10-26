@@ -9,5 +9,5 @@ __pycache__/
 *.BIN
 *.mid
 *.syx
-roms/
+/roms/
 vst/custom/
