@@ -1,0 +1,13 @@
+build/
+dist/
+vst/build/
+vst/preview/
+dist-local/
+__pycache__/
+*.rom
+*.bin
+*.BIN
+*.mid
+*.syx
+roms/
+vst/custom/
