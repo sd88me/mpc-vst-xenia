@@ -218,18 +218,21 @@ row(p, 8, 1272, 500, [("popup", "Wave", "Wavetable", 260, 118), ("popup", "Alias
 p.done()
 
 # ---------------------------------------------------------------- MIXER / AMP
-p = Page("MIXER", ["MixW1", "MixW2", "MixRingMod", "MixNoise", "MixExternal", "-", "-", "-", "AmpVolume", "AmpVelocity", "AmpKeytrack", "Pan",
-                   "PanKeytrack", "DePan", "-", "-"])
+p = Page("MIX & AMP", ["MixW1", "MixW2", "MixRingMod", "MixNoise", "AmpVolume", "AmpVelocity", "AmpKeytrack", "Pan",
+                       "AmpEnvAttack", "AmpEnvDecay", "AmpEnvSustain", "AmpEnvRelease"])
 p.heading(8, 4, 626, "Mixer")
 row(p, 8, 634, 92, [("knob", "MixW1", "Wave 1"), ("knob", "MixW2", "Wave 2"), ("knob", "MixRingMod", "Ring Mod"), ("knob", "MixNoise", "Noise"), ("knob", "MixExternal", "Ext Input")])
-p.vline(646, 10, 410)
+p.vline(646, 10, 400)
 p.heading(658, 4, 614, "Amplifier")
 row(p, 658, 1272, 92, [("knob", "AmpVolume", "Volume"), ("knob", "AmpVelocity", "Velocity"), ("knob", "AmpKeytrack", "Keytrack"), ("knob", "Pan", "Pan"),
                        ("knob", "PanKeytrack", "Pan Keytrack"), ("knob", "DePan", "Pan Spread")])
-p.heading(8, 204, 626, "Glide")
-row(p, 8, 634, 292, [("toggle", "GlideEnabled", "Glide"), ("popup", "GlideType", "Type", 130), ("popup", "GlideMode", "Mode", 130), ("knob", "GlideTime", "Time")])
-p.heading(658, 204, 614, "Voice")
-row(p, 658, 1272, 292, [("popup", "AllocationMode", "Allocation", 130), ("popup", "Assignment", "Assignment", 130), ("knob", "Detune", "Detune")])
+p.heading(8, 190, 626, "Glide")
+row(p, 8, 634, 278, [("toggle", "GlideEnabled", "Glide"), ("popup", "GlideType", "Type", 130), ("popup", "GlideMode", "Mode", 130), ("knob", "GlideTime", "Time")])
+p.heading(658, 190, 614, "Voice")
+row(p, 658, 1272, 278, [("popup", "AllocationMode", "Allocation", 130), ("popup", "Assignment", "Assignment", 130), ("knob", "Detune", "Detune")])
+p.heading(8, 380, 1264, "Amp Envelope")
+row(p, 8, 1272, 490, [("popup", "AmpEnvTrigger", "Trigger", 150), ("knob", "AmpEnvAttack", "Attack"), ("knob", "AmpEnvDecay", "Decay"), ("knob", "AmpEnvSustain", "Sustain"),
+                      ("knob", "AmpEnvRelease", "Release")])
 p.done()
 
 # ---------------------------------------------------------------- FILTER
@@ -249,15 +252,17 @@ row(p, 8, 1272, 420, [("popup", "F1EnvTrigger", "Trigger", 150), ("knob", "F1Env
 p.done()
 
 # ---------------------------------------------------------------- ENV
-p = Page("ENV", ["AmpEnvAttack", "AmpEnvDecay", "AmpEnvSustain", "AmpEnvRelease",
-                 "FreeEnvTime1", "FreeEnvLevel1", "FreeEnvTime2", "FreeEnvLevel2", "FreeEnvTime3", "FreeEnvLevel3", "FreeEnvReleaseTime", "FreeEnvReleaseLevel"])
-p.heading(8, 4, 1264, "Amp Envelope")
-row(p, 8, 1272, 120, [("popup", "AmpEnvTrigger", "Trigger", 150), ("knob", "AmpEnvAttack", "Attack"), ("knob", "AmpEnvDecay", "Decay"), ("knob", "AmpEnvSustain", "Sustain"),
-                      ("knob", "AmpEnvRelease", "Release")])
-p.heading(8, 250, 1264, "Free Envelope")
-row(p, 8, 1272, 380, [("popup", "FreeEnvTrigger", "Trigger", 110), ("knob", "FreeEnvTime1", "Time 1"), ("knob", "FreeEnvLevel1", "Level 1"), ("knob", "FreeEnvTime2", "Time 2"),
+p = Page("ENV & LFO", ["FreeEnvTime1", "FreeEnvLevel1", "FreeEnvTime2", "FreeEnvLevel2", "FreeEnvTime3", "FreeEnvLevel3", "FreeEnvReleaseTime", "FreeEnvReleaseLevel",
+                       "Lfo1Rate", "Lfo1Delay", "Lfo1Symmetry", "Lfo1Humanize", "Lfo2Rate", "Lfo2Delay", "Lfo2Symmetry", "Lfo2Humanize"])
+p.heading(8, 4, 1264, "Free Envelope")
+row(p, 8, 1272, 100, [("popup", "FreeEnvTrigger", "Trigger", 110), ("knob", "FreeEnvTime1", "Time 1"), ("knob", "FreeEnvLevel1", "Level 1"), ("knob", "FreeEnvTime2", "Time 2"),
                       ("knob", "FreeEnvLevel2", "Level 2"), ("knob", "FreeEnvTime3", "Time 3"), ("knob", "FreeEnvLevel3", "Level 3"), ("knob", "FreeEnvReleaseTime", "Release T"),
                       ("knob", "FreeEnvReleaseLevel", "Release L")])
+p.vline(640, 226, 612)
+for n, x0 in ((1, 8), (2, 648)):
+    p.heading(x0, 210, 624, "LFO %d" % n)
+    row(p, x0, x0 + 624, 306, [("popup", "Lfo%dShape" % n, "Shape", 120), ("knob", "Lfo%dRate" % n, "Rate"), ("knob", "Lfo%dDelay" % n, "Delay"), ("knob", "Lfo%dSymmetry" % n, "Symmetry")])
+    row(p, x0, x0 + 624, 450, [("popup", "Lfo%dSync" % n, "Sync", 120), ("knob", "Lfo%dHumanize" % n, "Humanize")] + ([("knob", "Lfo2Phase", "Phase")] if n == 2 else []))
 p.done()
 
 # ---------------------------------------------------------------- WAVE ENV
@@ -270,17 +275,6 @@ p.heading(8, 340, 1264, "Loops")
 row(p, 8, 1272, 460, [("popup", "WaveEnvTrigger", "Trigger", 140), ("toggle", "WaveKeyOnLoop", "Key On Loop"), ("popup", "WaveKeyOnLoopStart", "Start", 90),
                       ("popup", "WaveKeyOnLoopEnd", "End", 90), ("toggle", "WaveKeyOffLoop", "Key Off Loop"), ("popup", "WaveKeyOffLoopStart", "Start", 90),
                       ("popup", "WaveKeyOffLoopEnd", "End", 90)])
-p.done()
-
-# ---------------------------------------------------------------- LFO
-p = Page("LFO", ["Lfo1Rate", "Lfo1Delay", "Lfo1Symmetry", "Lfo1Humanize", "Lfo2Rate", "Lfo2Delay", "Lfo2Symmetry", "Lfo2Humanize", "Lfo2Phase", "-", "-", "-"])
-p.heading(8, 4, 624, "LFO 1")
-row(p, 8, 632, 92, [("popup", "Lfo1Shape", "Shape", 120), ("knob", "Lfo1Rate", "Rate"), ("knob", "Lfo1Delay", "Delay"), ("knob", "Lfo1Symmetry", "Symmetry")])
-row(p, 8, 632, 232, [("popup", "Lfo1Sync", "Sync", 120), ("knob", "Lfo1Humanize", "Humanize")])
-p.vline(640, 10, 410)
-p.heading(648, 4, 624, "LFO 2")
-row(p, 648, 1272, 92, [("popup", "Lfo2Shape", "Shape", 120), ("knob", "Lfo2Rate", "Rate"), ("knob", "Lfo2Delay", "Delay"), ("knob", "Lfo2Symmetry", "Symmetry")])
-row(p, 648, 1272, 232, [("popup", "Lfo2Sync", "Sync", 120), ("knob", "Lfo2Humanize", "Humanize"), ("knob", "Lfo2Phase", "Phase")])
 p.done()
 
 # ---------------------------------------------------------------- MOD
