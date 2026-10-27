@@ -1,3 +1,6 @@
+> **Superseded 2026-10-27.** The first boot, level, CPU, Docker build and a first device run are done: see `docs/DEVELOPMENT.md` (state and next steps) and the dated
+> entry in mpc-vst-plugins `docs/NOTES.md`. The text below is the original cloud-to-local handoff and its "never run" lists are out of date.
+
 # Handoff: Xenia (Microwave XT) for MPC, from the cloud session to a local one (2026-10-26)
 
 Branch `ccr-aef1400f-qpr3a5` in `sd88me/mpc-vst-xenia` (4 commits, pushed) and in `sd88me/mpc-vst-plugins` (one NOTES.md commit on top of main, pushed).

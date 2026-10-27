@@ -4,11 +4,13 @@ An emulation of the Waldorf Microwave XT wavetable synthesizer as a native VST2 
 aarch64, MPC OS 3.x), with a touchscreen skin in the look of gearmulator's Xenia plugin and Q-Link control on every page. It runs the original XT firmware on
 [gearmulator](https://github.com/dsp56300/gearmulator)'s 68k and DSP56300 emulators ("Xenia" is gearmulator's name for its Microwave XT emulation).
 
-![The OSC page](docs/screenshots/xenia-osc.png)
+![The OSC page (skin preview)](docs/screenshots/xenia-osc.png)
 
-**Status: first build, nothing run with a ROM yet.** The wrapper's host test passes (x86, ASan/UBSan, no ROM) and the plugin links for aarch64; the engine has not
-booted the XT firmware, and nothing has been tried on a device. The skin is drawn and previewed offline only. Gen1 devices and the Force are not supported (the
-emulator's JIT has no 32-bit ARM backend). Single mode, one part: the XT's Multi mode, wave editor and Global menu are not exposed.
+**Status: 0.1.0, tested on one device.** Run on an MPC Live III (MPC OS 3.9.1.2) on 2026-10-27 with a real Microwave XT ROM: it loads, boots in about half a second, plays,
+changes bank and preset (steppers, BANKS tiles, data wheel), all pages and Q-Link sub-pages and the option popups work, and the DSP thread uses about 35% of one core with no
+dropouts. **Not yet verified on a device:** saving and reloading a project, INIT PATCH, long sessions (a stuck note was seen once at the start of the first builds; PANIC clears
+it), and the output level against other instruments (the GAIN default of 250% comes from an x86 measurement). Gen1 devices and the Force are not supported (the emulator's
+JIT has no 32-bit ARM backend). One part in Multi mode (the XT's power-on state): the multi, wave editor and Global menu are not exposed.
 
 *Xenia is an independent project, not affiliated with or endorsed by Waldorf Music. "Microwave" and "XT" are the names of the instrument it emulates.*
 
@@ -18,16 +20,18 @@ with the bytes `C0 DE`), or its two 128 kB halves, or an OS update `.mid` next t
 it finds one the PLAY page says `No Microwave XT ROM in xenia/roms/`.
 
 ## Using it
-Add *Xenia* to a plugin track. Pages (tabs at the bottom; MPC pages them five at a time): **PLAY** (title bar with the bank and preset steppers on the LCD,
-patch volume, pan, glide and detune, output gain and DSP clock, engine status, PANIC and INIT PATCH), **BANKS** (the two ROM banks A and B of 100 sounds, 30
-sounds per page), **OSC** (oscillators 1 and 2, waves 1 and 2, wavetable, quality), **MIXER** (mixer, amplifier, glide, voice), **FILTER** (filters 1 and 2,
-filter envelope), **ENV** (amp and free envelopes), **WAVE ENV** (the eight-stage wave envelope and its loops), **LFO**, **MOD** (four modifiers and the
-modulation delay), **SLOTS 1-8** and **SLOTS 9-16** (the modulation matrix), **ARP & FX** (arpeggiator and the effect).
-Every four Q-Links form a column that MPC outlines on the page. The data wheel steps the preset; a MIDI program change selects a sound of the current bank
-(bank select 0 or 1 picks the bank). MPC's PRESET menu has `Default`.
+Add *Xenia* to a plugin track. Ten pages (tabs at the bottom; MPC pages them five at a time): **PLAY** (title bar with the bank and preset steppers on the LCD,
+four assignable play knobs with a target popup each, the effect, voice allocation and detune, volume, pan, output gain and DSP clock, engine status, PANIC and INIT
+PATCH), **BANKS** (the two ROM banks A and B of 100 sounds, 30 sounds per page), **OSC** (oscillators 1 and 2, waves 1 and 2, wavetable and its quality, mixer),
+**AMP & ARP** (amplifier, glide, arpeggiator), **FILTER** (filters 1 and 2, filter and amp envelopes), **ENV & LFO** (free envelope, both LFOs), **WAVE ENV** (the
+eight-stage wave envelope and its loops), **MOD** (four modifiers and the modulation delay), **SLOTS 1-8** and **SLOTS 9-16** (the modulation matrix).
+Every four Q-Links form a column that MPC outlines on the page; pages with more knobs than one Q-Link set holds have sub-pages (OSC: oscillators, waves, mixer; AMP & ARP;
+FILTER; ENV & LFO). The data wheel steps the preset; a MIDI program change selects a sound of the current bank (bank select 0 or 1 picks the bank). MPC's PRESET menu has
+`Default`.
 
 **DSP CLOCK %** (PLAY page) is how fast the emulated DSP runs: 100 is the real instrument's speed. Lower it only if the CPU can't keep up (the STATS readout
-shows dropouts and the emulator's CPU). The CPU cost of the XT on a Live III is not measured yet.
+shows dropouts and the emulator's CPU). Measured on a Live III (2026-10-27): the DSP thread takes about 35% of one of its eight cores at 100, with no dropouts, so the
+default stays 100. **GAIN %** is the output level (default 250; the XT's own output is quiet).
 
 ## Install
 Build it (below) or, once a release exists, use the [MPC plugin catalog](https://sd88me.github.io/mpc-vst-plugins/) or the zip from
