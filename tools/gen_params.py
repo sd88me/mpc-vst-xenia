@@ -150,7 +150,7 @@ add(dict(key="all_notes_off", name="PANIC", min=0, max=1, default=0, momentary=T
 add(dict(key="rom_name", name="ROM", min=0, max=0, default=0, display="string", poll=True), "System")
 add(dict(key="loading_status", name="STATUS", min=0, max=0, default=0, display="string", poll=True), "System")
 add(dict(key="dsp_clock", name="DSP CLOCK %", min=10, max=100, default=100, display="int"), "System")
-add(dict(key="gain", name="GAIN %", min=10, max=400, default=100, display="int"), "System")
+add(dict(key="gain", name="GAIN %", min=10, max=400, default=250, display="int"), "System")
 
 SECTIONS = [
     ("Wave Env", ("WaveEnv", "WaveKey")), ("Oscillators", ("O1", "O2")), ("Wavetable", ("Wave", "W1", "W2")), ("Mixer", ("Mix",)), ("Quality", ("Aliasing", "TimeQuant", "Clipping", "Accuracy")),

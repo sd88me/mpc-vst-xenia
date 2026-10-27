@@ -53,7 +53,7 @@ constexpr int kTargetFill = 1024;                // frames the emulator thread k
 constexpr int kBanks = 2, kPerBank = 100, kPatchSlots = 30, kDumpLen = 265;
 constexpr int kNameOff = 247, kNameLen = 16;     // in a single dump including its sysex header
 constexpr int kParamOff = 7;                     // first parameter byte of a single dump
-constexpr int kEditBuffer = 0x20;                // LocationH::SingleEditBufferSingleMode
+constexpr int kEditBuffer = 0x30;                // LocationH::SingleEditBufferMultiMode, location 0 = part 1: the XT boots in Multi mode, where a dump to 0x20 is ignored
 constexpr int kDeviceId = 0x7f;                  // omni
 
 using Dump = std::vector<uint8_t>;
@@ -129,7 +129,7 @@ struct Inst {
     /* what the UI reads: the edit buffer's raw parameter bytes, the current sound */
     std::atomic<uint8_t> raw[256];
     std::atomic<int> bank{0}, preset{0}, page{0};
-    std::atomic<int> clock{100}, gain{100};
+    std::atomic<int> clock{100}, gain{250};
     std::atomic<uint32_t> rev{1};
     std::mutex sm;                                            // names, status, the edit buffer dump
     char status[96] = "Starting...";
@@ -512,7 +512,7 @@ void restore_state(Inst *in, const char *s) {
     };
     in->bank = std::max(0, std::min(kBanks - 1, num("\"bank\":", 0)));
     in->preset = std::max(0, std::min(kPerBank - 1, num("\"preset\":", 0)));
-    in->gain = std::max(10, std::min(400, num("\"gain\":", 100)));
+    in->gain = std::max(10, std::min(400, num("\"gain\":", 250)));
     in->clock = std::max(10, std::min(100, num("\"clock\":", 100)));
     const char *h = strstr(s, "\"single\":\"");
     if (h) {

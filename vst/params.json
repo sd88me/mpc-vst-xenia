@@ -114,7 +114,7 @@
    "name": "GAIN %",
    "min": 10,
    "max": 400,
-   "default": 100,
+   "default": 250,
    "display": "int"
   },
   {

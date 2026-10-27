@@ -37,6 +37,22 @@ static double render_rms(const mpc_engine_t *e, void *i, double secs, double *pe
     return sqrt(sq / n);
 }
 
+/* a note's character: rms and brightness (rms of the first difference over rms), so two different sounds can be told apart */
+static void render_sig(const mpc_engine_t *e, void *i, double secs, double *rms, double *bright)
+{
+    int16_t buf[256];
+    double sq = 0, dq = 0, prev = 0; long n = 0;
+    const int blocks = (int)(secs * 44100 / 128);
+    auto t0 = std::chrono::steady_clock::now();
+    for (int b = 0; b < blocks; b++) {
+        e->render(i, buf, 128);
+        for (int k = 0; k < 256; k += 2) { double v = buf[k] / 32768.0; sq += v * v; dq += (v - prev) * (v - prev); prev = v; n++; }
+        std::this_thread::sleep_until(t0 + std::chrono::microseconds((long)((b + 1) * 128 * 1e6 / 44100)));
+    }
+    *rms = sqrt(sq / n);
+    *bright = *rms > 1e-6 ? sqrt(dq / n) / *rms : 0;
+}
+
 static bool wait_ready(const mpc_engine_t *e, void *i, int seconds)
 {
     for (int w = 0; w < seconds * 10; w++) {
@@ -65,7 +81,8 @@ int main(int argc, char **argv)
     printf("preset %s \"%s\" bank \"%s\"\n", get(e, i, "preset").c_str(), get(e, i, "preset_name").c_str(), get(e, i, "bank_name").c_str());
 
     double pk = 0;
-    render_rms(e, i, 0.5);
+    const double idle = render_rms(e, i, 1.5);
+    CHECK(idle < 0.001, "silent before any note (rms %.5f)", idle);
     uint8_t on[3] = {0x90, 60, 100}, off[3] = {0x80, 60, 0};
     e->midi(i, on, 3);
     double rms = render_rms(e, i, secs, &pk);
@@ -124,6 +141,25 @@ int main(int argc, char **argv)
     e->set_param(i, "bank_slot_1", "1");
     render_rms(e, i, 0.5);
     CHECK(get(e, i, "bank_index") == "0", "bank tile 1 -> bank %s", get(e, i, "bank_index").c_str());
+
+    // different presets must sound different (not just carry other names)
+    {
+        double r[4], br[4];
+        for (int k = 0; k < 4; k++) {
+            e->set_param(i, "bank_index", "0");
+            e->set_param(i, "preset", std::to_string(k * 7).c_str());
+            render_rms(e, i, 0.6);
+            e->midi(i, on, 3);
+            render_rms(e, i, 0.3);
+            render_sig(e, i, 1.0, &r[k], &br[k]);
+            e->midi(i, off, 3);
+            render_rms(e, i, 1.0);
+            printf("     preset %d \"%s\": rms %.4f brightness %.4f\n", k * 7, get(e, i, "preset_name").c_str(), r[k], br[k]);
+        }
+        int distinct = 0;
+        for (int k = 1; k < 4; k++) { bool d = true; for (int j = 0; j < k; j++) if (fabs(br[k] - br[j]) < 0.02 * br[j]) d = false; distinct += d; }
+        CHECK(distinct >= 2, "presets 0/7/14/21 sound different (%d of 3 distinct from the earlier ones)", distinct);
+    }
 
     // the stepper arrows send preset_next/preset_prev/bank_next/bank_prev (1 on press)
     e->set_param(i, "preset", "98");
