@@ -4,4 +4,7 @@
 :root { --font: "Liberation Sans", "Titillium Web", sans-serif; --title-font: "Liberation Sans", sans-serif;
         --title-size: 20px; --label-size: 15px; --radius: 3px; --sheen: 0.04; --button-size: 16px; --seg-size: 15px; }
 text { font-weight: 700; }
-.frame-title, .td3 .frame-title { fill: var(--accent); font-style: italic; letter-spacing: 0; }
+.frame-title, .td3 .frame-title { fill: #1676b2; font-style: italic; letter-spacing: 0.08em; filter: drop-shadow(0 1px 0 rgba(255, 225, 170, 0.6)); }
+/* Clementine's panels: a thin Xenia-blue outline over a faint dark tint, no rule under the title */
+.frame-border { fill: rgba(110, 36, 0, 0.09); stroke: #1676b2; stroke-opacity: 0.8; stroke-width: 1.4; rx: 8px; }
+.frame-rule { display: none; }
