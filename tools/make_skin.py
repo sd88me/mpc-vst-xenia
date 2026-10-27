@@ -22,8 +22,8 @@ INK = (38, 22, 6)               # Xenia's labels: near-black brown on the amber
 INK_DIM = (88, 52, 10)
 BLUE = (20, 110, 200)           # section headings, dividers, selector bars
 BLUE_LO = (14, 84, 130)
-BEZEL = (122, 52, 12)           # the LCD's surround
-BEZEL_DK = (84, 34, 6)
+BEZEL = (184, 40, 29)           # the LCD's surround
+BEZEL_DK = (122, 24, 16)
 LCD = (40, 158, 50)
 KNOB = 74                       # drawn size of a knob's footprint (its label sits above it)
 
@@ -117,18 +117,17 @@ theme_knob_ring=1a1208
 theme_knob_dot=ff6a2a
 theme_lcd=9fae62
 theme_box=9fae62
-theme_tile_on=f84d4c
 theme_seg_active=f84d4c
 theme_seg_inactive=6c6470
 theme_seg_active_tx=ffffff
-theme_btn_bg=1676b2
+theme_btn_bg=6c6470
 theme_btn_text=ffffff
 theme_btn_text_plain=ffffff
-theme_display_bg=2a9c34
-theme_display_cell=2b9136
-theme_display_off=2a8a33
-theme_display_bezel=7a340c
-theme_display_ink=0b2a0e
+theme_display_bg=9fae62
+theme_display_cell=95a55a
+theme_display_off=797f57
+theme_display_bezel=b8281d
+theme_display_ink=1f2414
 style=td3
 art_css=skin.css
 knob_strip=images/knob_xenia.png
@@ -163,8 +162,8 @@ def header(page, tab_title):
     page.im.paste(wm, (60, -6), wm)
     d.rounded_rectangle((360, 14, 1262, 112), 6, fill=BEZEL, outline=BEZEL_DK, width=4)
     d.rounded_rectangle((372, 24, 1250, 102), 4, outline=BEZEL_DK, width=3)
-    page.text(398, 26, "BANK", 15, (236, 200, 150))
-    page.text(738, 26, "PRESET", 15, (236, 200, 150))
+    page.text(398, 26, "BANK", 15, (255, 214, 200))
+    page.text(738, 26, "PRESET", 15, (255, 214, 200))
     # the preset stepper comes first: the data wheel acts on the first focusable control
     page.widgets.append('stepper w=500 h=44 cx=%d cy=%d label="" key=preset get=preset_name prev=preset_prev next=preset_next style=dotmatrix persistent=1' % (1000, 72 + Y86))
     page.widgets.append('stepper w=300 h=44 cx=%d cy=%d label="" key=bank_index get=bank_name prev=bank_prev next=bank_next style=dotmatrix persistent=1' % (545, 72 + Y86))
@@ -191,11 +190,10 @@ p = Page("BANKS", ["preset", "bank_index", "patch_page_prev", "patch_page_next"]
 p.widgets.append('stepper w=560 h=44 cx=545 cy=%d label="" key=preset get=preset_name prev=preset_prev next=preset_next style=dotmatrix persistent=1' % (30 + Y86))
 p.widgets.append('stepper w=230 h=44 cx=140 cy=%d label="" key=bank_index get=bank_name prev=bank_prev next=bank_next style=dotmatrix persistent=1' % (30 + Y86))
 p.widgets.append('stepper w=240 h=44 cx=1120 cy=%d label="" key=patch_page_text get=patch_page_text prev=patch_page_prev next=patch_page_next style=dotmatrix' % (30 + Y86))
-p.heading(8, 62, 262, "Banks")
-p.widgets.append('list x=22 y=%d w=236 h=130 cols=1 rows=2 gap=6 th=44 key=bank_slot tcolor=1f2414 tsize=20' % (112 + Y86))
-p.vline(290, 66, 616)
-p.heading(310, 62, 962, "Patches")
-p.widgets.append('list x=312 y=%d w=950 h=486 cols=3 rows=10 gap=6 th=41 key=patch_slot order=cols tcolor=1f2414 tsize=17' % (112 + Y86))
+p.widgets.append('frame x=8 y=%d w=270 h=548 title="BANKS"' % (62 + Y86))
+p.widgets.append('list x=22 y=%d w=236 h=130 cols=1 rows=2 gap=6 th=44 key=bank_slot' % (112 + Y86))
+p.widgets.append('frame x=296 y=%d w=976 h=548 title="SOUNDS"' % (62 + Y86))
+p.widgets.append('list x=312 y=%d w=950 h=486 cols=3 rows=10 gap=6 th=41 key=patch_slot order=cols' % (112 + Y86))
 p.done()
 
 # ---------------------------------------------------------------- OSC
