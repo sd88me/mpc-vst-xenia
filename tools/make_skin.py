@@ -214,7 +214,6 @@ p = Page("OSC", ["O1Octave", "O1Semi", "O1Detune", "O1BendRange", "O1KeyTrack", 
 p.heading(8, 4, 624, "Oscillator 1")
 row(p, 8, 632, 92, [("knob", "O1Octave", "Octave"), ("knob", "O1Semi", "Semi"), ("knob", "O1Detune", "Detune"), ("knob", "O1BendRange", "Bend"),
                     ("knob", "O1KeyTrack", "Keytrack"), ("knob", "O1FmAmount", "FM Amount")])
-p.vline(640, 10, 366)
 p.heading(648, 4, 624, "Wave 1")
 row(p, 648, 1272, 92, [("knob", "W1StartW", "Wave"), ("knob", "W1StartP", "Phase"), ("knob", "W1EnvAmount", "Env Amt"), ("knob", "W1EnvVelAmount", "Vel Amt"),
                        ("knob", "W1Keytrack", "Keytrack"), ("toggle", "W1Limit", "Limit")])
@@ -230,7 +229,7 @@ p.popup(170, 524, "Aliasing", "Aliasing", 200)
 p.popup(470, 524, "TimeQuant", "Time Quant", 200)
 p.popup(170, 592, "Clipping", "Clipping", 200)
 p.popup(470, 592, "Accuracy", "Accuracy", 200)
-p.vline(640, 386, 612)
+p.vline(640, 10, 612)
 p.heading(648, 380, 624, "Mixer")
 row(p, 648, 1272, 500, [("knob", "MixW1", "Wave 1"), ("knob", "MixW2", "Wave 2"), ("knob", "MixRingMod", "Ring Mod"), ("knob", "MixNoise", "Noise")])
 p.done()
