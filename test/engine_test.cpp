@@ -125,6 +125,27 @@ int main(int argc, char **argv)
     render_rms(e, i, 0.5);
     CHECK(get(e, i, "bank_index") == "0", "bank tile 1 -> bank %s", get(e, i, "bank_index").c_str());
 
+    // the stepper arrows send preset_next/preset_prev/bank_next/bank_prev (1 on press)
+    e->set_param(i, "preset", "98");
+    render_rms(e, i, 0.3);
+    e->set_param(i, "preset_next", "1");
+    render_rms(e, i, 0.3);
+    const std::string pn1 = get(e, i, "preset_name");
+    e->set_param(i, "preset_next", "1");
+    render_rms(e, i, 0.3);
+    CHECK(get(e, i, "preset") == "0" && get(e, i, "preset_name") != pn1, "preset_next 98 -> 99 -> 0 (wrap) \"%s\"", get(e, i, "preset_name").c_str());
+    e->set_param(i, "preset_prev", "1");
+    render_rms(e, i, 0.3);
+    CHECK(get(e, i, "preset") == "99", "preset_prev 0 -> %s", get(e, i, "preset").c_str());
+    const std::string b0 = get(e, i, "bank_index");
+    e->set_param(i, "bank_next", "1");
+    render_rms(e, i, 0.3);
+    CHECK(get(e, i, "bank_index") != b0, "bank_next %s -> %s", b0.c_str(), get(e, i, "bank_index").c_str());
+    e->midi(i, on, 3);
+    rms = render_rms(e, i, secs, &pk);
+    e->midi(i, off, 3);
+    CHECK(rms > 0.0005, "sound after stepping rms %.4f", rms);
+
     // INIT PATCH: every exposed parameter at its table default
     e->set_param(i, "init_patch", "1");
     render_rms(e, i, 1.0);

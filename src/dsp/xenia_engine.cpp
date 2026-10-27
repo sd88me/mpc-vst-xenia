@@ -538,7 +538,19 @@ void eng_set(void *p, const char *key, const char *val) {
     if (!strcmp(key, "patch_page_next")) { if (atoi(val) && in->page + 1 < pages()) { in->page++; in->bump(); } return; }
     if (!strcmp(key, "preset")) { select_sound(in, in->bank, atoi(val)); in->page = in->preset / kPatchSlots; return; }
     if (!strcmp(key, "bank_index")) { select_sound(in, atoi(val), in->preset); return; }
-    if (!strcmp(key, "preset_next") || !strcmp(key, "preset_prev") || !strcmp(key, "bank_next") || !strcmp(key, "bank_prev")) return;
+    // the stepper arrows send these verbs (momentary, 1 on press); step with wrap-around
+    if (!strcmp(key, "preset_next") || !strcmp(key, "preset_prev")) {
+        if (atoi(val)) {
+            const int d = !strcmp(key, "preset_next") ? 1 : kPerBank - 1;
+            select_sound(in, in->bank, (in->preset + d) % kPerBank);
+            in->page = in->preset / kPatchSlots;
+        }
+        return;
+    }
+    if (!strcmp(key, "bank_next") || !strcmp(key, "bank_prev")) {
+        if (atoi(val)) select_sound(in, (in->bank + (!strcmp(key, "bank_next") ? 1 : kBanks - 1)) % kBanks, in->preset);
+        return;
+    }
     if (!strcmp(key, "all_notes_off")) { if (atoi(val)) { Cmd c; c.type = C_PANIC; in->push(std::move(c)); } return; }
     if (!strcmp(key, "init_patch")) { if (atoi(val)) { Cmd c; c.type = C_INIT; in->push(std::move(c)); } return; }
     if (!strcmp(key, "dsp_clock")) { in->clock = std::max(10, std::min(100, atoi(val))); return; }
