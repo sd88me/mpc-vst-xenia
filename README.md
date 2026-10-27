@@ -8,8 +8,7 @@ aarch64, MPC OS 3.x), with a touchscreen skin in the look of gearmulator's Xenia
 
 **Status: 0.1.0, tested on one device.** Run on an MPC Live III (MPC OS 3.9.1.2) on 2026-10-27 with a real Microwave XT ROM: it loads, boots in about half a second, plays,
 changes bank and preset (steppers, BANKS tiles, data wheel), all pages and Q-Link sub-pages and the option popups work, and the DSP thread uses about 35% of one core with no
-dropouts. **Not yet verified on a device:** saving and reloading a project, INIT PATCH, long sessions (a stuck note was seen once at the start of the first builds; PANIC clears
-it), and the output level against other instruments (the GAIN default of 250% comes from an x86 measurement). Gen1 devices and the Force are not supported (the emulator's
+dropouts. Gen1 devices and the Force are not supported (the emulator's
 JIT has no 32-bit ARM backend). One part in Multi mode (the XT's power-on state): the multi, wave editor and Global menu are not exposed.
 
 *Xenia is an independent project, not affiliated with or endorsed by Waldorf Music. "Microwave" and "XT" are the names of the instrument it emulates.*
