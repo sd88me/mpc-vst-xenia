@@ -95,6 +95,29 @@ int main(int argc, char **argv)
     for (int w = 0; w < 600 && get(e, i, "patch_slot_30").size() <= 4; w++) std::this_thread::sleep_for(std::chrono::milliseconds(100));
     CHECK(get(e, i, "patch_slot_1").size() > 4, "tile 1 \"%s\", tile 2 \"%s\"", get(e, i, "patch_slot_1").c_str(), get(e, i, "patch_slot_2").c_str());
 
+    // every ROM name of both banks should arrive (the harvester re-scans for dropped dumps)
+    {
+        auto missing = [&]() {
+            int m = 0;
+            for (int pg = 0; pg < 4; pg++) {
+                for (int k = 1; k <= 30 && pg * 30 + k <= 100; k++)
+                    if (get(e, i, ("patch_slot_" + std::to_string(k)).c_str()).size() <= 4) m++;
+                if (pg < 3) e->set_param(i, "patch_page_next", "1");
+            }
+            for (int pg = 0; pg < 3; pg++) e->set_param(i, "patch_page_prev", "1");
+            return m;
+        };
+        int miss_a = missing();
+        for (int w = 0; w < 120 && miss_a > 0; w++) { std::this_thread::sleep_for(std::chrono::seconds(1)); miss_a = missing(); }
+        e->set_param(i, "bank_index", "1");
+        render_rms(e, i, 0.3);
+        int miss_b = missing();
+        for (int w = 0; w < 60 && miss_b > 0; w++) { std::this_thread::sleep_for(std::chrono::seconds(1)); miss_b = missing(); }
+        e->set_param(i, "bank_index", "0");
+        render_rms(e, i, 0.3);
+        CHECK(miss_a == 0 && miss_b == 0, "all ROM names arrived (still missing: bank A %d, bank B %d)", miss_a, miss_b);
+    }
+
     // another preset sounds and changes the name
     std::string n0 = get(e, i, "preset_name");
     e->set_param(i, "preset", "17");
