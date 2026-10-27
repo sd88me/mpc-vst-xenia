@@ -173,7 +173,7 @@ def header(page, tab_title):
 
 
 # ---------------------------------------------------------------- PLAY
-p = Page("PLAY", ["play_v1", "play_v2", "play_v3", "play_v4", "AmpVolume", "Pan", "gain", "dsp_clock", "EffectParamA", "EffectParamB", "EffectParamC", "-"])
+p = Page("PLAY", ["play_v1", "play_v2", "play_v3", "play_v4", "AmpVolume", "Pan", "gain", "dsp_clock", "EffectParamA", "EffectParamB", "EffectParamC", "-", "Detune", "-", "-", "-"])
 header(p, "PLAY")
 p.heading(14, 130, 560, "Play")
 for n, cx in enumerate((84, 224, 364, 504), 1):
@@ -184,13 +184,14 @@ row(p, 14, 574, 486, [("popup", "EffectType", "Type", 110), ("knob", "EffectPara
                       ("toggle", "ChorusEnabled", "Chorus")])
 p.vline(594, 136, 612)
 p.heading(614, 130, 652, "Engine")
-p.readout(940, 214, "rom_name", "ROM", 600)
-p.readout(786, 296, "loading_status", "Status", 296)
-p.readout(1094, 296, "engine_stats", "Stats", 296)
-p.button(786, 378, "all_notes_off", "PANIC")
-p.button(1094, 378, "init_patch", "INIT PATCH")
-p.heading(614, 430, 652, "Output")
-row(p, 614, 1266, 534, [("knob", "AmpVolume", "Volume"), ("knob", "Pan", "Pan"), ("knob", "gain", "Gain %"), ("knob", "dsp_clock", "DSP Clock %")])
+p.readout(786, 198, "loading_status", "Status", 296)
+p.readout(1094, 198, "engine_stats", "Stats", 296)
+p.button(786, 258, "all_notes_off", "PANIC")
+p.button(1094, 258, "init_patch", "INIT PATCH")
+p.heading(614, 296, 652, "Voice")
+row(p, 614, 1266, 392, [("popup", "AllocationMode", "Allocation", 150), ("popup", "Assignment", "Assignment", 150), ("knob", "Detune", "Detune")])
+p.heading(614, 470, 652, "Output")
+row(p, 614, 1266, 552, [("knob", "AmpVolume", "Volume"), ("knob", "Pan", "Pan"), ("knob", "gain", "Gain %"), ("knob", "dsp_clock", "DSP Clock %")])
 p.done()
 
 # ---------------------------------------------------------------- BANKS
@@ -228,20 +229,17 @@ row(p, 8, 1272, 500, [("popup", "Wave", "Wavetable", 260, 118), ("popup", "Alias
 p.done()
 
 # ---------------------------------------------------------------- MIX & ARP (mixer, amplifier, glide, voice, arpeggiator)
-p = Page("MIX & ARP", ["MixW1", "MixW2", "MixRingMod", "MixNoise", "MixExternal", "AmpVolume", "AmpVelocity", "AmpKeytrack",
-                       "Pan", "PanKeytrack", "DePan", "-"],
-         ("Voice", ["GlideTime", "Detune", "-", "-"]),
-         ("Arp", ["ArpTempo", "ArpRange", "ArpUserPatternLength", "-"]))
+p = Page("MIX & ARP", ["MixW1", "MixW2", "MixRingMod", "MixNoise", "AmpVolume", "AmpVelocity", "AmpKeytrack", "Pan",
+                       "PanKeytrack", "DePan", "-", "-"],
+         ("Glide & Arp", ["GlideTime", "-", "-", "-", "ArpTempo", "ArpRange", "ArpUserPatternLength", "-"]))
 p.heading(8, 4, 626, "Mixer")
-row(p, 8, 634, 92, [("knob", "MixW1", "Wave 1"), ("knob", "MixW2", "Wave 2"), ("knob", "MixRingMod", "Ring Mod"), ("knob", "MixNoise", "Noise"), ("knob", "MixExternal", "Ext Input")])
-p.vline(646, 10, 400)
+row(p, 8, 634, 92, [("knob", "MixW1", "Wave 1"), ("knob", "MixW2", "Wave 2"), ("knob", "MixRingMod", "Ring Mod"), ("knob", "MixNoise", "Noise")])
+p.vline(646, 10, 170)
 p.heading(658, 4, 614, "Amplifier")
 row(p, 658, 1272, 92, [("knob", "AmpVolume", "Volume"), ("knob", "AmpVelocity", "Velocity"), ("knob", "AmpKeytrack", "Keytrack"), ("knob", "Pan", "Pan"),
                        ("knob", "PanKeytrack", "Pan Keytrack"), ("knob", "DePan", "Pan Spread")])
-p.heading(8, 190, 626, "Glide")
-row(p, 8, 634, 278, [("toggle", "GlideEnabled", "Glide"), ("popup", "GlideType", "Type", 130), ("popup", "GlideMode", "Mode", 130), ("knob", "GlideTime", "Time")])
-p.heading(658, 190, 614, "Voice")
-row(p, 658, 1272, 278, [("popup", "AllocationMode", "Allocation", 130), ("popup", "Assignment", "Assignment", 130), ("knob", "Detune", "Detune")])
+p.heading(8, 190, 1264, "Glide")
+row(p, 220, 1060, 288, [("toggle", "GlideEnabled", "Glide"), ("popup", "GlideType", "Type", 150), ("popup", "GlideMode", "Mode", 150), ("knob", "GlideTime", "Time")])
 p.heading(8, 380, 1264, "Arpeggiator")
 row(p, 8, 1272, 490, [("popup", "ArpMode", "Mode", 112), ("popup", "ArpClock", "Clock", 112), ("popup", "ArpPattern", "Pattern", 112), ("popup", "ArpDirection", "Direction", 112),
                       ("popup", "ArpNoteOrder", "Note Order", 112), ("popup", "ArpVelocity", "Velocity", 112), ("knob", "ArpTempo", "Tempo"), ("knob", "ArpRange", "Range"),
