@@ -182,6 +182,16 @@ int main(int argc, char **argv)
     e->midi(i, off, 3);
     CHECK(rms > 0.0005, "sound after stepping rms %.4f", rms);
 
+    // the assignable PLAY knobs: knob 1 starts on the filter cutoff, a popup change retargets it
+    CHECK(get(e, i, "play1") == "Filter 1 Cutoff", "play1 target \"%s\"", get(e, i, "play1").c_str());
+    e->set_param(i, "play_v1", "33");
+    render_rms(e, i, 0.2);
+    CHECK(get(e, i, "F1Cutoff") == "33" && get(e, i, "play_v1") == "33", "play_v1 33 -> F1Cutoff %s", get(e, i, "F1Cutoff").c_str());
+    e->set_param(i, "play1", get(e, i, "play2").c_str());           // same target as knob 2 (the resonance)
+    e->set_param(i, "play_v1", "55");
+    render_rms(e, i, 0.2);
+    CHECK(get(e, i, "F1Resonance") == "55" && get(e, i, "play_v2") == "55", "play1 retargeted -> F1Resonance %s", get(e, i, "F1Resonance").c_str());
+
     // INIT PATCH: every exposed parameter at its table default
     e->set_param(i, "init_patch", "1");
     render_rms(e, i, 1.0);

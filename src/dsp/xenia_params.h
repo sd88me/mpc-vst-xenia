@@ -207,3 +207,8 @@ static const xt_param_t g_xt_params[] = {
     {"Slot16Destination", 239, 0, 35, 1, 0, nullptr, 0, 0},
 };
 static const int XT_NUM_PARAMS = 195;
+/* the assignable PLAY knobs: target keys (all raw 0..127), their labels, and the default target of each of the four */
+static const char *const g_play_keys[] = {"F1Cutoff", "F1Resonance", "F1EnvAmount", "F1EnvAttack", "F1EnvDecay", "F1EnvSustain", "F1EnvRelease", "F2Cutoff", "MixW1", "MixW2", "MixRingMod", "MixNoise", "AmpEnvAttack", "AmpEnvDecay", "AmpEnvSustain", "AmpEnvRelease", "GlideTime", "Lfo1Symmetry", "Lfo2Symmetry", "O1FmAmount", "EffectParamB", "EffectParamC", "AmpVolume", "AmpVelocity"};
+static const char *const g_play_labels[] = {"Filter 1 Cutoff", "Filter 1 Reso", "Filter 1 Env Amount", "Filter Env Attack", "Filter Env Decay", "Filter Env Sustain", "Filter Env Release", "Filter 2 Cutoff", "Mix Wave 1", "Mix Wave 2", "Mix Ring Mod", "Mix Noise", "Amp Env Attack", "Amp Env Decay", "Amp Env Sustain", "Amp Env Release", "Glide Time", "LFO 1 Symmetry", "LFO 2 Symmetry", "Osc 1 FM Amount", "Effect Param B", "Effect Param C", "Amp Volume", "Amp Velocity"};
+static const int PLAY_NUM = 24;
+static const int g_play_default[4] = {0, 1, 2, 15};

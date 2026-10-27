@@ -130,6 +130,7 @@ struct Inst {
     std::atomic<uint8_t> raw[256];
     std::atomic<int> bank{0}, preset{0}, page{0};
     std::atomic<int> clock{100}, gain{250};
+    std::atomic<int> play_sel[4];                             // which target each PLAY knob moves (index into g_play_keys)
     std::atomic<uint32_t> rev{1};
     std::mutex sm;                                            // names, status, the edit buffer dump
     char status[96] = "Starting...";
@@ -449,6 +450,7 @@ void *eng_create(const char *dir) {
     Inst *in = new Inst();
     in->dir = dir ? dir : "";
     for (auto &r : in->raw) r.store(0);
+    for (int i = 0; i < 4; i++) in->play_sel[i] = g_play_default[i];
     for (int i = 0; i < XT_NUM_PARAMS; i++) in->raw[g_xt_params[i].idx].store((uint8_t)g_xt_params[i].def);
     in->th = std::thread(emu_main, in);
     return in;
@@ -521,6 +523,11 @@ void restore_state(Inst *in, const char *s) {
     in->preset = std::max(0, std::min(kPerBank - 1, num("\"preset\":", 0)));
     in->gain = std::max(10, std::min(400, num("\"gain\":", 250)));
     in->clock = std::max(10, std::min(100, num("\"clock\":", 100)));
+    for (int i = 0; i < 4; i++) {
+        char k[8];
+        snprintf(k, sizeof k, "\"p%d\":", i + 1);
+        in->play_sel[i] = std::max(0, std::min(PLAY_NUM - 1, num(k, g_play_default[i])));
+    }
     const char *h = strstr(s, "\"single\":\"");
     if (h) {
         h += 10;
@@ -566,6 +573,22 @@ void eng_set(void *p, const char *key, const char *val) {
     if (!strcmp(key, "dsp_clock")) { in->clock = std::max(10, std::min(100, atoi(val))); return; }
     if (!strcmp(key, "gain")) { in->gain = std::max(10, std::min(400, atoi(val))); return; }
     if (!strcmp(key, "state")) { restore_state(in, val); return; }
+    if (!strncmp(key, "play", 4) && (key[4] >= '1' && key[4] <= '4') && !key[5]) {        // the target popup of PLAY knob n
+        for (int i = 0; i < PLAY_NUM; i++) if (!strcmp(val, g_play_labels[i])) { in->play_sel[key[4] - '1'] = i; in->bump(); break; }
+        return;
+    }
+    if (!strncmp(key, "play_v", 6) && key[6] >= '1' && key[6] <= '4' && !key[7]) {         // PLAY knob n: write the raw byte of its target
+        auto pt = xt_index().find(g_play_keys[in->play_sel[key[6] - '1'].load()]);
+        if (pt == xt_index().end()) return;
+        const int idx = g_xt_params[pt->second].idx, raw = std::max(0, std::min(127, atoi(val)));
+        in->raw[idx].store((uint8_t)raw);
+        Cmd c;
+        c.type = C_PARAM;
+        c.a = idx;
+        c.b = raw;
+        in->push(std::move(c));
+        return;
+    }
     auto it = xt_index().find(key);
     if (it == xt_index().end()) return;
     const xt_param_t &q = g_xt_params[it->second];
@@ -617,13 +640,18 @@ int eng_get(void *p, const char *key, char *buf, int n) {
     if (!strcmp(key, "rom_name")) { std::lock_guard<std::mutex> l(in->sm); return put(buf, n, "%s", in->rom_name[0] ? in->rom_name : "-"); }
     if (!strcmp(key, "loading_status")) { std::lock_guard<std::mutex> l(in->sm); return put(buf, n, "%s", in->status); }
     if (!strcmp(key, "engine_stats")) return put(buf, n, "DROPOUTS %u   DSP CPU %d%%", in->underruns.load(), in->dsp_cpu.load());
+    if (!strncmp(key, "play", 4) && key[4] >= '1' && key[4] <= '4' && !key[5]) return put(buf, n, "%s", g_play_labels[in->play_sel[key[4] - '1'].load()]);
+    if (!strncmp(key, "play_v", 6) && key[6] >= '1' && key[6] <= '4' && !key[7]) {
+        auto pt = xt_index().find(g_play_keys[in->play_sel[key[6] - '1'].load()]);
+        return put(buf, n, "%d", pt == xt_index().end() ? 0 : (int)in->raw[g_xt_params[pt->second].idx].load());
+    }
     if (!strcmp(key, "dsp_clock")) return put(buf, n, "%d", in->clock.load());
     if (!strcmp(key, "gain")) return put(buf, n, "%d", in->gain.load());
     if (!strcmp(key, "display_rev")) return put(buf, n, "%u", in->rev.load());
     if (!strcmp(key, "state")) {
         std::lock_guard<std::mutex> l(in->sm);
-        int off = put(buf, n, "{\"state_version\":1,\"bank\":%d,\"preset\":%d,\"gain\":%d,\"clock\":%d", in->bank.load(), in->preset.load(),
-                      in->gain.load(), in->clock.load());
+        int off = put(buf, n, "{\"state_version\":1,\"bank\":%d,\"preset\":%d,\"gain\":%d,\"clock\":%d,\"p1\":%d,\"p2\":%d,\"p3\":%d,\"p4\":%d", in->bank.load(), in->preset.load(),
+                      in->gain.load(), in->clock.load(), in->play_sel[0].load(), in->play_sel[1].load(), in->play_sel[2].load(), in->play_sel[3].load());
         if (in->ready && in->cur.size() == (size_t)kDumpLen && off + 540 < n) {
             Dump d = in->cur;
             for (int i = 0; i < XT_NUM_PARAMS; i++) d[kParamOff + g_xt_params[i].idx] = in->raw[g_xt_params[i].idx].load();

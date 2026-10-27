@@ -211,7 +211,20 @@ add(dict(key="patch_page_next", name="PAGE +", min=0, max=1, default=0, momentar
 add(dict(key="engine_stats", name="STATS", min=0, max=0, default=0, display="string", poll=True), "System")
 add(dict(key="init_patch", name="INIT", min=0, max=1, default=0, momentary=True), "System")
 
-order = ["Browse", "Banks", "System"] + [s for s, _ in SECTIONS] + ["Other"]
+# ---- the four assignable PLAY knobs (like Clementine's): a popup picks the target, the knob moves it (raw 0..127 targets only)
+PLAY_CAND = ["F1Cutoff", "F1Resonance", "F1EnvAmount", "F1KeyTrack", "F1EnvAttack", "F1EnvDecay", "F1EnvSustain", "F1EnvRelease", "F2Cutoff",
+             "MixW1", "MixW2", "MixRingMod", "MixNoise", "AmpEnvAttack", "AmpEnvDecay", "AmpEnvSustain", "AmpEnvRelease", "GlideTime",
+             "W1StartW", "W2StartW", "Lfo1Delay", "Lfo2Delay", "Lfo1Symmetry", "Lfo2Symmetry", "O1FmAmount", "EffectParamB", "EffectParamC", "AmpVolume", "AmpVelocity"]
+PLAY_DEFAULT = ["F1Cutoff", "F1Resonance", "F1EnvAmount", "AmpEnvRelease"]
+_xt = {x[0]: x for x in XT}
+_names = {p["key"]: p["name"] for p in params}
+PLAY = [k for k in PLAY_CAND if k in _xt and _xt[k][4] == 0 and _xt[k][2] == 0 and _xt[k][3] == 127]
+PLAY_LABELS = [_names[k] for k in PLAY]
+for i in range(4):
+    add(dict(key="play%d" % (i + 1), name="PLAY %d TARGET" % (i + 1), options=PLAY_LABELS, default=PLAY_LABELS[PLAY.index(PLAY_DEFAULT[i])], refresh_display=True), "Play")
+    add(dict(key="play_v%d" % (i + 1), name="PLAY %d" % (i + 1), min=0, max=127, default=64, display="int"), "Play")
+
+order = ["Browse", "Banks", "System", "Play"] + [s for s, _ in SECTIONS] + ["Other"]
 sections = [{"label": s, "keys": keys_in[s]} for s in order if s in keys_in]
 json.dump({"name": "Xenia", "params": params, "sections": sections}, open(OUT, "w"), indent=1)
 
@@ -228,4 +241,8 @@ with open(HDR, "w") as f:
     for k, idx, lo, hi, kind, off, mapn, dflt in XT:
         f.write('    {"%s", %d, %d, %d, %d, %d, %s, %d, %d},\n' % (k, idx, lo, hi, kind, off, ("xt_map_" + k) if mapn else "nullptr", len(mapn) if mapn else 0, dflt))
     f.write("};\nstatic const int XT_NUM_PARAMS = %d;\n" % len(XT))
+    f.write("/* the assignable PLAY knobs: target keys (all raw 0..127), their labels, and the default target of each of the four */\n")
+    f.write("static const char *const g_play_keys[] = {%s};\n" % ", ".join('"%s"' % k for k in PLAY))
+    f.write("static const char *const g_play_labels[] = {%s};\n" % ", ".join('"%s"' % k for k in PLAY_LABELS))
+    f.write("static const int PLAY_NUM = %d;\nstatic const int g_play_default[4] = {%s};\n" % (len(PLAY), ", ".join(str(PLAY.index(k)) for k in PLAY_DEFAULT)))
 print("params.json: %d params (%d XT single parameters), %d sections" % (len(params), len(XT), len(sections)))
