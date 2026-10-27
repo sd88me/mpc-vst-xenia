@@ -412,7 +412,7 @@ void emu_main(Inst *in) {
     // (the first sound's edit buffer must have arrived, or the first notes play the ROM's power-on state: silence)
     for (int i = 0; (i < kTargetFill / kBlock + 2 || (want.active && i < 4000)) && !in->stop; i++) produce(true);
     in->ready = true;
-    in->set_status("Ready");
+    in->set_status("Ready - ROM loaded");
     xlog("[emu] ready");
 
     while (!in->stop) {

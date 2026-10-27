@@ -57,7 +57,7 @@ static bool wait_ready(const mpc_engine_t *e, void *i, int seconds)
 {
     for (int w = 0; w < seconds * 10; w++) {
         const std::string s = get(e, i, "loading_status");
-        if (s == "Ready" || s.rfind("No ", 0) == 0 || s.find("failed") != std::string::npos) return s == "Ready";
+        if (s.rfind("Ready", 0) == 0 || s.rfind("No ", 0) == 0 || s.find("failed") != std::string::npos) return s.rfind("Ready", 0) == 0;
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }
     return false;
