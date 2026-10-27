@@ -173,19 +173,24 @@ def header(page, tab_title):
 
 
 # ---------------------------------------------------------------- PLAY
-p = Page("PLAY", ["preset", "bank_index", "-", "-", "AmpVolume", "Pan", "GlideTime", "Detune", "gain", "dsp_clock", "-", "-"])
+p = Page("PLAY", ["play_v1", "play_v2", "play_v3", "play_v4", "AmpVolume", "Pan", "gain", "dsp_clock", "EffectParamA", "EffectParamB", "EffectParamC", "-"])
 header(p, "PLAY")
-p.heading(14, 130, 560, "Patch")
-row(p, 14, 574, 232, [("knob", "AmpVolume", "Volume"), ("knob", "Pan", "Pan"), ("knob", "GlideTime", "Glide Time"), ("knob", "Detune", "Detune")])
-p.heading(14, 330, 560, "Output")
-row(p, 14, 574, 432, [("knob", "gain", "Gain %"), ("knob", "dsp_clock", "DSP Clock %")])
+p.heading(14, 130, 560, "Play")
+for n, cx in enumerate((84, 224, 364, 504), 1):
+    p.knob(cx, 222, "play_v%d" % n, "Play %d" % n)
+    p.popup(cx, 320, "play%d" % n, "", 126)
+p.heading(14, 368, 560, "Effect")
+row(p, 14, 574, 486, [("popup", "EffectType", "Type", 110), ("knob", "EffectParamA", "Param A"), ("knob", "EffectParamB", "Param B"), ("knob", "EffectParamC", "Param C"),
+                      ("toggle", "ChorusEnabled", "Chorus")])
 p.vline(594, 136, 612)
 p.heading(614, 130, 652, "Engine")
 p.readout(940, 214, "rom_name", "ROM", 600)
 p.readout(786, 296, "loading_status", "Status", 296)
 p.readout(1094, 296, "engine_stats", "Stats", 296)
-p.button(786, 400, "all_notes_off", "PANIC")
-p.button(1094, 400, "init_patch", "INIT PATCH")
+p.button(786, 378, "all_notes_off", "PANIC")
+p.button(1094, 378, "init_patch", "INIT PATCH")
+p.heading(614, 430, 652, "Output")
+row(p, 614, 1266, 534, [("knob", "AmpVolume", "Volume"), ("knob", "Pan", "Pan"), ("knob", "gain", "Gain %"), ("knob", "dsp_clock", "DSP Clock %")])
 p.done()
 
 # ---------------------------------------------------------------- BANKS
@@ -222,10 +227,11 @@ row(p, 8, 1272, 500, [("popup", "Wave", "Wavetable", 260, 118), ("popup", "Alias
                       ("popup", "Clipping", "Clipping", 150), ("popup", "Accuracy", "Accuracy", 150)])
 p.done()
 
-# ---------------------------------------------------------------- MIXER / AMP
-p = Page("MIX & AMP", ["MixW1", "MixW2", "MixRingMod", "MixNoise", "MixExternal", "-", "-", "-",
-                       "AmpVolume", "AmpVelocity", "AmpKeytrack", "Pan", "PanKeytrack", "DePan", "-", "-"],
-         ("Env & Voice", ["AmpEnvAttack", "AmpEnvDecay", "AmpEnvSustain", "AmpEnvRelease", "GlideTime", "Detune", "-", "-"]))
+# ---------------------------------------------------------------- MIX & ARP (mixer, amplifier, glide, voice, arpeggiator)
+p = Page("MIX & ARP", ["MixW1", "MixW2", "MixRingMod", "MixNoise", "MixExternal", "AmpVolume", "AmpVelocity", "AmpKeytrack",
+                       "Pan", "PanKeytrack", "DePan", "-"],
+         ("Voice", ["GlideTime", "Detune", "-", "-"]),
+         ("Arp", ["ArpTempo", "ArpRange", "ArpUserPatternLength", "-"]))
 p.heading(8, 4, 626, "Mixer")
 row(p, 8, 634, 92, [("knob", "MixW1", "Wave 1"), ("knob", "MixW2", "Wave 2"), ("knob", "MixRingMod", "Ring Mod"), ("knob", "MixNoise", "Noise"), ("knob", "MixExternal", "Ext Input")])
 p.vline(646, 10, 400)
@@ -236,25 +242,31 @@ p.heading(8, 190, 626, "Glide")
 row(p, 8, 634, 278, [("toggle", "GlideEnabled", "Glide"), ("popup", "GlideType", "Type", 130), ("popup", "GlideMode", "Mode", 130), ("knob", "GlideTime", "Time")])
 p.heading(658, 190, 614, "Voice")
 row(p, 658, 1272, 278, [("popup", "AllocationMode", "Allocation", 130), ("popup", "Assignment", "Assignment", 130), ("knob", "Detune", "Detune")])
-p.heading(8, 380, 1264, "Amp Envelope")
-row(p, 8, 1272, 490, [("popup", "AmpEnvTrigger", "Trigger", 150), ("knob", "AmpEnvAttack", "Attack"), ("knob", "AmpEnvDecay", "Decay"), ("knob", "AmpEnvSustain", "Sustain"),
-                      ("knob", "AmpEnvRelease", "Release")])
+p.heading(8, 380, 1264, "Arpeggiator")
+row(p, 8, 1272, 490, [("popup", "ArpMode", "Mode", 112), ("popup", "ArpClock", "Clock", 112), ("popup", "ArpPattern", "Pattern", 112), ("popup", "ArpDirection", "Direction", 112),
+                      ("popup", "ArpNoteOrder", "Note Order", 112), ("popup", "ArpVelocity", "Velocity", 112), ("knob", "ArpTempo", "Tempo"), ("knob", "ArpRange", "Range"),
+                      ("knob", "ArpUserPatternLength", "User Length"), ("toggle", "ArpReset", "Reset")])
 p.done()
 
 # ---------------------------------------------------------------- FILTER
 p = Page("FILTER", ["F1Cutoff", "F1Resonance", "F1KeyTrack", "F1EnvAmount", "F1EnvVelAmount", "F1Extra", "-", "-", "F2Cutoff", "F2KeyTrack", "-", "-",
-                    "F1EnvAttack", "F1EnvDecay", "F1EnvSustain", "F1EnvRelease"])
+                    "F1EnvAttack", "F1EnvDecay", "F1EnvSustain", "F1EnvRelease"],
+         ("Amp Env", ["AmpEnvAttack", "AmpEnvDecay", "AmpEnvSustain", "AmpEnvRelease"]))
 p.heading(8, 4, 904, "Filter 1")
 row(p, 8, 912, 190, [("knob", "F1Cutoff", "Cutoff"), ("knob", "F1Resonance", "Resonance"), ("knob", "F1KeyTrack", "Keytrack"), ("knob", "F1EnvAmount", "Env Amt"),
                      ("knob", "F1EnvVelAmount", "Vel Amt"), ("knob", "F1Extra", "Extra")])
 p.popup(460, 76, "F1Type", "Type 1", 330)
-p.vline(930, 10, 410)
+p.vline(930, 10, 296)
 p.heading(948, 4, 324, "Filter 2")
 p.popup(1110, 76, "F2Type", "Type 2", 250)
 row(p, 948, 1272, 190, [("knob", "F2Cutoff", "Cutoff"), ("knob", "F2KeyTrack", "Keytrack")])
-p.heading(8, 300, 1264, "Filter Envelope")
-row(p, 8, 1272, 420, [("popup", "F1EnvTrigger", "Trigger", 150), ("knob", "F1EnvAttack", "Attack"), ("knob", "F1EnvDecay", "Decay"), ("knob", "F1EnvSustain", "Sustain"),
-                      ("knob", "F1EnvRelease", "Release")])
+p.heading(8, 340, 624, "Filter Envelope")
+row(p, 8, 632, 470, [("popup", "F1EnvTrigger", "Trigger", 100), ("knob", "F1EnvAttack", "Attack"), ("knob", "F1EnvDecay", "Decay"), ("knob", "F1EnvSustain", "Sustain"),
+                     ("knob", "F1EnvRelease", "Release")])
+p.vline(640, 346, 612)
+p.heading(648, 340, 624, "Amp Envelope")
+row(p, 648, 1272, 470, [("popup", "AmpEnvTrigger", "Trigger", 100), ("knob", "AmpEnvAttack", "Attack"), ("knob", "AmpEnvDecay", "Decay"), ("knob", "AmpEnvSustain", "Sustain"),
+                        ("knob", "AmpEnvRelease", "Release")])
 p.done()
 
 # ---------------------------------------------------------------- ENV
@@ -275,16 +287,16 @@ p.done()
 p = Page("WAVE ENV", ["WaveEnvTime1", "WaveEnvLevel1", "WaveEnvTime2", "WaveEnvLevel2", "WaveEnvTime3", "WaveEnvLevel3", "WaveEnvTime4", "WaveEnvLevel4",
                       "WaveEnvTime5", "WaveEnvLevel5", "WaveEnvTime6", "WaveEnvLevel6", "WaveEnvTime7", "WaveEnvLevel7", "WaveEnvTime8", "WaveEnvLevel8"])
 p.heading(8, 4, 1264, "Wave Envelope")
-row(p, 8, 1272, 100, [("knob", "WaveEnvTime%d" % i, "Time %d" % i) for i in range(1, 9)])
-row(p, 8, 1272, 236, [("knob", "WaveEnvLevel%d" % i, "Level %d" % i) for i in range(1, 9)])
-p.heading(8, 340, 1264, "Loops")
-row(p, 8, 1272, 460, [("popup", "WaveEnvTrigger", "Trigger", 140), ("toggle", "WaveKeyOnLoop", "Key On Loop"), ("popup", "WaveKeyOnLoopStart", "Start", 90),
+row(p, 8, 1272, 108, [("knob", "WaveEnvTime%d" % i, "Time %d" % i) for i in range(1, 9)])
+row(p, 8, 1272, 252, [("knob", "WaveEnvLevel%d" % i, "Level %d" % i) for i in range(1, 9)])
+p.heading(8, 380, 1264, "Loops")
+row(p, 8, 1272, 500, [("popup", "WaveEnvTrigger", "Trigger", 140), ("toggle", "WaveKeyOnLoop", "Key On Loop"), ("popup", "WaveKeyOnLoopStart", "Start", 90),
                       ("popup", "WaveKeyOnLoopEnd", "End", 90), ("toggle", "WaveKeyOffLoop", "Key Off Loop"), ("popup", "WaveKeyOffLoopStart", "Start", 90),
                       ("popup", "WaveKeyOffLoopEnd", "End", 90)])
 p.done()
 
 # ---------------------------------------------------------------- MOD
-p = Page("MOD", ["Mod1Parameter", "Mod2Parameter", "-", "-", "Mod3Parameter", "Mod4Parameter", "-", "-", "ModDelayTime"])
+p = Page("MOD", ["Mod1Parameter", "Mod2Parameter", "Mod3Parameter", "Mod4Parameter", "ModDelayTime", "-", "-", "-"])
 for n in range(1, 5):
     x0 = 8 + ((n - 1) % 2) * 640
     y = 4 + ((n - 1) // 2) * 200
@@ -316,17 +328,6 @@ def slots(name, first):
 
 slots("SLOTS 1-8", 1)
 slots("SLOTS 9-16", 9)
-
-# ---------------------------------------------------------------- ARP
-p = Page("ARP & FX", ["ArpTempo", "ArpRange", "ArpUserPatternLength", "-", "EffectParamA", "EffectParamB", "EffectParamC", "-"])
-p.heading(8, 4, 1264, "Arpeggiator")
-row(p, 8, 1272, 92, [("popup", "ArpMode", "Mode", 130), ("popup", "ArpClock", "Clock", 130), ("popup", "ArpPattern", "Pattern", 130), ("popup", "ArpDirection", "Direction", 130),
-                     ("popup", "ArpNoteOrder", "Note Order", 150), ("popup", "ArpVelocity", "Velocity", 130)])
-row(p, 8, 1272, 232, [("knob", "ArpTempo", "Tempo"), ("knob", "ArpRange", "Range"), ("knob", "ArpUserPatternLength", "User Length"), ("toggle", "ArpReset", "Reset")])
-p.heading(8, 330, 1264, "Effect")
-row(p, 8, 1272, 450, [("popup", "EffectType", "Effect Type", 220), ("knob", "EffectParamA", "Param A"), ("knob", "EffectParamB", "Param B"), ("knob", "EffectParamC", "Param C"),
-                      ("toggle", "ChorusEnabled", "Chorus")])
-p.done()
 
 open(os.path.join(OUT, "layout.conf"), "w").write("\n".join(lines) + "\n")
 print("layout.conf: %d lines" % len(lines))
