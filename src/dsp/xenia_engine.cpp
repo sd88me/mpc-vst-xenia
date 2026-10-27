@@ -287,6 +287,7 @@ void emu_main(Inst *in) {
 
     auto ask_for_sound = [&](int bank, int prog) {
         want.active = true; want.bank = bank; want.prog = prog; want.waited = 0;
+        xlog("[sound] request single %d/%d", bank, prog);
         plugin->addMidiEvent(request_single(bank, prog));
     };
 
@@ -350,7 +351,7 @@ void emu_main(Inst *in) {
             }
             if (next_req >= kBanks * kPerBank) harvest_done = true;
         }
-        if (want.active && ++want.waited % 200 == 0) plugin->addMidiEvent(request_single(want.bank, want.prog));
+        if (want.active && ++want.waited % 200 == 0) { xlog("[sound] still waiting for %d/%d", want.bank, want.prog); plugin->addMidiEvent(request_single(want.bank, want.prog)); }
 
         plugin->process(inputs, outputs, kBlock, 120.0f, 0.0f, false, false);
         block_no++;
@@ -374,6 +375,7 @@ void emu_main(Inst *in) {
             }
             if (want.active && bank == want.bank && prog == want.prog) {
                 want.active = false;
+                xlog("[sound] loaded %d/%d \"%s\"", bank, prog, in->names[bank][prog]);
                 Dump d(sx.begin(), sx.end());
                 d[5] = kEditBuffer;
                 d[6] = 0;
@@ -436,7 +438,7 @@ void emu_main(Inst *in) {
 /* ------------------------------------------------------------------ the engine interface */
 
 void *eng_create(const char *dir) {
-    if (const char *l = getenv("XENIA_LOG")) if (!g_log) g_log = fopen(l, "a");
+    if (!g_log) g_log = fopen(getenv("XENIA_LOG") ? getenv("XENIA_LOG") : "/tmp/xenia.log", "a");     // small: boot, sound changes, dumps
     Inst *in = new Inst();
     in->dir = dir ? dir : "";
     for (auto &r : in->raw) r.store(0);
@@ -490,6 +492,7 @@ int pages(int count = kPerBank) { return (count + kPatchSlots - 1) / kPatchSlots
 void select_sound(Inst *in, int bank, int prog) {
     bank = std::max(0, std::min(kBanks - 1, bank));
     prog = std::max(0, std::min(kPerBank - 1, prog));
+    xlog("[sound] select bank %d preset %d", bank, prog);
     in->bank = bank;
     in->preset = prog;
     Cmd c;
