@@ -281,6 +281,7 @@ void emu_main(Inst *in) {
     int next_req = 0, applied_clock = in->clock.load();
     const int first_bank = in->bank.load() % kBanks;
     bool harvest_done = false;
+    int harvest_passes = 0;
     long last_ticks = 0;
     auto last_t = std::chrono::steady_clock::now();
     uint32_t block_no = 0;
@@ -349,7 +350,13 @@ void emu_main(Inst *in) {
                 plugin->addMidiEvent(request_single(bank, prog));
                 break;
             }
-            if (next_req >= kBanks * kPerBank) harvest_done = true;
+            if (next_req >= kBanks * kPerBank) {
+                // a dump the XT dropped leaves its name unknown: scan again for what is still missing (bounded)
+                bool missing = false;
+                { std::lock_guard<std::mutex> l(in->sm); for (int b = 0; b < kBanks && !missing; b++) for (int q = 0; q < kPerBank; q++) if (!in->have[b][q]) { missing = true; break; } }
+                if (missing && ++harvest_passes < 20) { next_req = 0; xlog("[names] pass %d: some names still missing", harvest_passes); }
+                else harvest_done = true;
+            }
         }
         if (want.active && ++want.waited % 200 == 0) { xlog("[sound] still waiting for %d/%d", want.bank, want.prog); plugin->addMidiEvent(request_single(want.bank, want.prog)); }
 
