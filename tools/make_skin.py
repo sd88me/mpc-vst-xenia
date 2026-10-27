@@ -212,23 +212,27 @@ p = Page("OSC", ["O1Octave", "O1Semi", "O1Detune", "O1BendRange", "O1KeyTrack", 
                     "W2StartW", "W2StartP", "W2EnvAmount", "W2EnvVelAmount", "W2Keytrack", "-", "-", "-"]),
          ("Mixer", ["MixW1", "MixW2", "MixRingMod", "MixNoise"]))
 p.heading(8, 4, 624, "Oscillator 1")
-row(p, 8, 632, 88, [("knob", "O1Octave", "Octave"), ("knob", "O1Semi", "Semi"), ("knob", "O1Detune", "Detune"), ("knob", "O1BendRange", "Bend"),
+row(p, 8, 632, 92, [("knob", "O1Octave", "Octave"), ("knob", "O1Semi", "Semi"), ("knob", "O1Detune", "Detune"), ("knob", "O1BendRange", "Bend"),
                     ("knob", "O1KeyTrack", "Keytrack"), ("knob", "O1FmAmount", "FM Amount")])
-p.vline(640, 10, 330)
+p.vline(640, 10, 366)
 p.heading(648, 4, 624, "Wave 1")
-row(p, 648, 1272, 88, [("knob", "W1StartW", "Wave"), ("knob", "W1StartP", "Phase"), ("knob", "W1EnvAmount", "Env Amt"), ("knob", "W1EnvVelAmount", "Vel Amt"),
+row(p, 648, 1272, 92, [("knob", "W1StartW", "Wave"), ("knob", "W1StartP", "Phase"), ("knob", "W1EnvAmount", "Env Amt"), ("knob", "W1EnvVelAmount", "Vel Amt"),
                        ("knob", "W1Keytrack", "Keytrack"), ("toggle", "W1Limit", "Limit")])
-p.heading(8, 172, 624, "Oscillator 2")
-row(p, 8, 632, 256, [("knob", "O2Octave", "Octave"), ("knob", "O2Semi", "Semi"), ("knob", "O2Detune", "Detune"), ("knob", "O2BendRange", "Bend"),
+p.heading(8, 204, 624, "Oscillator 2")
+row(p, 8, 632, 292, [("knob", "O2Octave", "Octave"), ("knob", "O2Semi", "Semi"), ("knob", "O2Detune", "Detune"), ("knob", "O2BendRange", "Bend"),
                      ("knob", "O2KeyTrack", "Keytrack"), ("toggle", "O2Sync", "Sync"), ("toggle", "O2Link", "Link")])
-p.heading(648, 172, 624, "Wave 2")
-row(p, 648, 1272, 256, [("knob", "W2StartW", "Wave"), ("knob", "W2StartP", "Phase"), ("knob", "W2EnvAmount", "Env Amt"), ("knob", "W2EnvVelAmount", "Vel Amt"),
+p.heading(648, 204, 624, "Wave 2")
+row(p, 648, 1272, 292, [("knob", "W2StartW", "Wave"), ("knob", "W2StartP", "Phase"), ("knob", "W2EnvAmount", "Env Amt"), ("knob", "W2EnvVelAmount", "Vel Amt"),
                         ("knob", "W2Keytrack", "Keytrack"), ("toggle", "W2Limit", "Limit"), ("toggle", "W2Link", "Link")])
-p.heading(8, 340, 1264, "Wavetable")
-row(p, 8, 1272, 414, [("popup", "Wave", "Wavetable", 260, 118), ("popup", "Aliasing", "Aliasing", 150), ("popup", "TimeQuant", "Time Quant", 150),
-                      ("popup", "Clipping", "Clipping", 150), ("popup", "Accuracy", "Accuracy", 150)])
-p.heading(8, 452, 1264, "Mixer")
-row(p, 200, 1080, 540, [("knob", "MixW1", "Wave 1"), ("knob", "MixW2", "Wave 2"), ("knob", "MixRingMod", "Ring Mod"), ("knob", "MixNoise", "Noise")])
+p.heading(8, 380, 624, "Wavetable")
+p.popup(320, 456, "Wave", "Wavetable", 400, cw=118)
+p.popup(170, 524, "Aliasing", "Aliasing", 200)
+p.popup(470, 524, "TimeQuant", "Time Quant", 200)
+p.popup(170, 592, "Clipping", "Clipping", 200)
+p.popup(470, 592, "Accuracy", "Accuracy", 200)
+p.vline(640, 386, 612)
+p.heading(648, 380, 624, "Mixer")
+row(p, 648, 1272, 500, [("knob", "MixW1", "Wave 1"), ("knob", "MixW2", "Wave 2"), ("knob", "MixRingMod", "Ring Mod"), ("knob", "MixNoise", "Noise")])
 p.done()
 
 # ---------------------------------------------------------------- AMP & ARP (amplifier, glide, arpeggiator)
