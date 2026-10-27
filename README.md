@@ -4,7 +4,7 @@ An emulation of the Waldorf Microwave XT wavetable synthesizer as a native VST2 
 aarch64, MPC OS 3.x), with a touchscreen skin in the look of gearmulator's Xenia plugin and Q-Link control on every page. It runs the original XT firmware on
 [gearmulator](https://github.com/dsp56300/gearmulator)'s 68k and DSP56300 emulators ("Xenia" is gearmulator's name for its Microwave XT emulation).
 
-![The OSC page (skin preview)](docs/screenshots/xenia-osc.png)
+![The PLAY page on an MPC Live III](docs/screenshots/xenia-play.png)
 
 **Status: 0.1.0, tested on one device.** Run on an MPC Live III (MPC OS 3.9.1.2) on 2026-10-27 with a real Microwave XT ROM: it loads, boots in about half a second, plays,
 changes bank and preset (steppers, BANKS tiles, data wheel), all pages and Q-Link sub-pages and the option popups work, and the DSP thread uses about 35% of one core with no
