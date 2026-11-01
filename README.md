@@ -14,9 +14,10 @@ JIT has no 32-bit ARM backend). One part in Multi mode (the XT's power-on state)
 *Xenia is an independent project, not affiliated with or endorsed by Waldorf Music. "Microwave" and "XT" are the names of the instrument it emulates.*
 
 ## You need your own ROM
-No ROM is included, and none may be shared. Put your own Microwave XT firmware in `xenia/roms/` inside the plugin folder: the 256 kB `.bin` image (it starts
+No ROM is included, and none may be shared. Put your own Microwave II or XT firmware in `xenia/roms/` inside the plugin folder: the 256 kB `.bin` image (it starts
 with the bytes `C0 DE`), or its two 128 kB halves, or an OS update `.mid` next to a full ROM (the highest version wins). The plugin looks when it starts; until
 it finds one the PLAY page says `No Microwave XT ROM in xenia/roms/`.
+The installer app's **Your ROMs and files** step can do this for you: it checks each file before copying it into the right folder (the rules are in `release/userfiles.json`), and an upgrade keeps it.
 
 ## Using it
 Add *Xenia* to a plugin track. Ten pages (tabs at the bottom; MPC pages them five at a time): **PLAY** (title bar with the bank and preset steppers on the LCD,

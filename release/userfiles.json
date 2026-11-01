@@ -1,0 +1,15 @@
+[
+  {
+    "path": "xenia/roms",
+    "label": "Microwave II/XT ROM",
+    "description": "Xenia needs the firmware of your own Waldorf Microwave II or XT: the 256 KB image, or its two 128 KB halves (the lower and upper chips).",
+    "hint": "Any file names work. An OS update .mid can go next to a full ROM: the highest version runs.",
+    "rules": [
+      {"label": "Microwave II/XT ROM", "ext": [".bin"], "size": 262144, "header_hex": "c0de"},
+      {"label": "Microwave II/XT ROM, first half", "ext": [".bin"], "size": 131072, "header_hex": "c000"},
+      {"label": "Microwave II/XT ROM, second half", "ext": [".bin"], "size": 131072, "header_hex": "de00"},
+      {"label": "Microwave XT OS update (.mid)", "ext": [".mid"], "size_min": 169984, "size_max": 175104, "header": "MThd", "unverified": true,
+       "note": "Looks like a Microwave XT OS update. It is used only next to a full ROM; the plugin checks it when it loads."}
+    ]
+  }
+]
