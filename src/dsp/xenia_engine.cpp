@@ -9,6 +9,7 @@
  *
  * ROM: <data_dir>/roms/ (scanned by xt::RomLoader: a 256 kB `.bin` full ROM, two 128 kB halves, or an OS update `.mid`).
  * None ships with the plugin. */
+#include "fast_cores.h"
 #include <algorithm>
 #include <atomic>
 #include <chrono>
@@ -202,6 +203,9 @@ synthLib::SMidiEvent param_change(int idx, int raw) {
 }
 
 void tune_thread() {
+    // Gen2 big.LITTLE (Live III: A55 0-3, A76 4-7): the fast cores minus MPC's "Audio Processing" core; 2-3x less CPU than
+    // wandering onto the A55s (measured 2026-11-03, mpc-vst-plugins docs/EMULATOR_PORTS.md). No-op on same-speed CPUs.
+    fastcores::pin_this_thread();
     int nice_val = 5;                      // the emulator thread yields to MPC's own audio and UI threads
     if (const char *e = getenv("XENIA_NICE")) nice_val = atoi(e);
     if (nice_val) setpriority(PRIO_PROCESS, (id_t)syscall(SYS_gettid), nice_val);
