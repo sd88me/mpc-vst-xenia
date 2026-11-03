@@ -272,6 +272,9 @@ void emu_main(Inst *in) {
         return;
     }
     xlog("[emu] booted");
+    // Gen2: each emulator thread on a core of its own (DSP A, this thread, MC68331). Sharing the fast-core mask, this thread
+    // often waited on the others' core (in MPC 2026-11-03: 9% -> <2% of a core once separate). No-op on same-speed CPUs.
+    if (fastcores::pin_named("DSP A", 0)) { fastcores::pin_named("MC68331", 2); fastcores::pin_this_to(1); xlog("[emu] threads on separate fast cores"); }
 
     float outl[kBlock], outr[kBlock];
     synthLib::TAudioInputs inputs = {};
