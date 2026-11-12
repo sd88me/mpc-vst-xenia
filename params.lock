@@ -333,3 +333,14 @@ Slot16Destination__open
 fav_add
 fav_del
 random_patch
+bank_slot_3
+bank_slot_4
+bank_slot_5
+bank_slot_6
+bank_slot_7
+bank_slot_8
+bank_slot_9
+bank_slot_10
+bank_page_prev
+bank_page_next
+bank_page_text

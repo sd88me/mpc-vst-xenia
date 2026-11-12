@@ -420,12 +420,14 @@ def banks_page(fn):
         d.line((cx + tw // 2 + 12, y, x1, y), fill=BLUE, width=2)
         d.text((cx, y), title, font=hf, fill=BLUE, anchor="mm")
 
-    # header: the red bezel of PLAY's LCD, three steppers
+    # header: the red bezel of PLAY's LCD: BANK and PRESET steppers, RANDOM and the favourite keys
     d.rounded_rectangle((8, 6, 1272, 62), 6, fill=BEZEL_DK)
     d.rounded_rectangle((11, 9, 1269, 59), 5, fill=BEZEL)
-    stepper(d, p.kids, 150, 34, 270, 42, "bank_name", "bank_prev", "bank_next")
-    stepper(d, p.kids, 620, 34, 620, 42, "preset_name", "preset_prev", "preset_next")
-    stepper(d, p.kids, 1112, 34, 300, 42, "patch_page_text", "patch_page_prev", "patch_page_next")
+    stepper(d, p.kids, 166, 34, 300, 42, "bank_name", "bank_prev", "bank_next")
+    stepper(d, p.kids, 576, 34, 500, 42, "preset_name", "preset_prev", "preset_next")
+    key_button(p.kids, "random_patch", 914, 34, "RANDOM", w=150, h=42)
+    key_button(p.kids, "fav_add", 1062, 34, "+ FAV", w=124, h=42)
+    key_button(p.kids, "fav_del", 1196, 34, "- FAV", w=124, h=42)
     lit = Image.new("RGBA", (300, 60), (0, 0, 0, 0))
     ImageDraw.Draw(lit).rounded_rectangle((0, 0, 299, 59), 4, outline=BLUE, width=4, fill=(22, 118, 178, 60))
 
@@ -437,21 +439,22 @@ def banks_page(fn):
             save(lit.resize((w, h)), on)
         button(p.kids, key, "%d %d %d %d" % (x, y, w, h), on, CLEAR, name=key + " tile")
 
-    heading(14, 270, 92, "Banks")
-    for i in range(2):
-        tile("bank_slot_%d" % (i + 1), 22, 118 + 56 * i, 240, 48)
-    heading(14, 270, 264, "Sound")
-    key_button(p.kids, "random_patch", 142, 314, "RANDOM", w=232, h=48)
-    heading(14, 270, 380, "Favourites")
-    key_button(p.kids, "fav_add", 82, 430, "+ FAV", w=112, h=48)
-    key_button(p.kids, "fav_del", 202, 430, "- FAV", w=112, h=48)
-    d.text((142, 480), "in the PRESET menu", font=F(15), fill=INK, anchor="mm")
-    d.line((286, 84, 286, 616), fill=BLUE, width=2)
-    heading(300, 1266, 92, "Sounds")
+    # banks: ROM A, ROM B, then the user banks (xenia/banks/), ten per page
+    heading(14, 300, 92, "Banks")
+    for i in range(10):
+        tile("bank_slot_%d" % (i + 1), 20, 112 + 45 * i, 280, 41)
+    stepper(d, p.kids, 160, 584, 280, 40, "bank_page_text", "bank_page_prev", "bank_page_next")
+    d.line((312, 84, 312, 616), fill=BLUE, width=2)
+    # sounds of the current bank, 30 per page (down the columns), the page stepper on the heading line
+    hf2 = hf
+    d.line((326, 92, 470, 92), fill=BLUE, width=2)
+    d.text((540, 92), "Sounds", font=hf2, fill=BLUE, anchor="mm")
+    d.line((610, 92, 950, 92), fill=BLUE, width=2)
+    stepper(d, p.kids, 1112, 92, 300, 38, "patch_page_text", "patch_page_prev", "patch_page_next")
     for c in range(3):
         for r in range(10):
-            tile("patch_slot_%d" % (c * 10 + r + 1), 300 + c * 324, 112 + r * 51, 316, 45)
-    p.qgroup((300, 6, 940, 62), ["bank_index", "preset"])
+            tile("patch_slot_%d" % (c * 10 + r + 1), 326 + c * 315, 120 + r * 49, 307, 44)
+    p.qgroup((14, 8, 828, 60), ["bank_index", "preset"])
     return p, art
 
 
@@ -475,7 +478,10 @@ def qlinks_for(pages):
 
 # ---- offline preview: compose a tab the way the MPC draws it --------------------------------------------------------------
 SAMPLE = {"preset_name": "001 CS-80      T&WMF", "bank_name": "BANK A", "loading_status": "Ready - ROM loaded",
-          "engine_stats": "DROPOUTS 0   DSP CPU 36%", "patch_page_text": "PAGE 1 / 4", "bank_slot_1": "BANK A", "bank_slot_2": "BANK B"}
+          "engine_stats": "DROPOUTS 0   DSP CPU 36%", "patch_page_text": "PAGE 1 / 4", "bank_page_text": "BANKS 1 / 3",
+          "bank_slot_1": "BANK A", "bank_slot_2": "BANK B", "bank_slot_3": "factory 1997", "bank_slot_4": "factory 1998",
+          "bank_slot_5": "factory 2000", "bank_slot_6": "hans heerooms drumloop", "bank_slot_7": "hans heerooms no filter",
+          "bank_slot_8": "paul nagle", "bank_slot_9": "the lab", "bank_slot_10": "Waldorf MWXT Factory"}
 
 
 def sample_text(key):

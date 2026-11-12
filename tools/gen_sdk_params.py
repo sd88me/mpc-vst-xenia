@@ -15,7 +15,14 @@ APPENDED = [                     # (key, name, min, max, default, flags) appende
     ("fav_add", "+ Favourite", 0, 1, 0, 4096 | 1 | 512),       # kLocal | kMomentary | kNoAuto: store the current sound as a PRESET-list favourite
     ("fav_del", "- Favourite", 0, 1, 0, 4096 | 1 | 512),       # remove the current favourite
     ("random_patch", "Random Patch", 0, 1, 0, 4096 | 1 | 512), # make a new random sound in the edit buffer
+    # user banks (2026-11-12): ten bank tiles on a pageable list (1.x had bank_slot_1/2 for ROM A/B), the bank page keys and text
+] + [("bank_slot_%d" % i, "Bank %d" % i, 0, 1, 0, 1 | 2 | 256 | 512) for i in range(3, 11)] + [
+    ("bank_page_prev", "Bank Page -", 0, 1, 0, 1 | 512),
+    ("bank_page_next", "Bank Page +", 0, 1, 0, 1 | 512),
+    ("bank_page_text", "Bank Page", 0, 1023, 0, 2 | 512),
 ]
+# Ranges widened for the user banks (the order is unchanged; 1.x: BANK 0..1 = ROM A/B, PRESET 0..99). A bank now holds up to 256 sounds.
+RANGE = {"bank_index": (0, 63), "preset": (0, 255)}
 
 keys = [p["key"] for p in P]
 popups = [k[:-len("__open")] for k in LOCK[len(keys):len(keys) + 79]]
@@ -62,6 +69,7 @@ for i, p in enumerate(P):
         lo, hi = 0, len(opts) - 1
     else:
         lo, hi, d = p.get("min", 0), p.get("max", 1), p.get("default", 0)
+        lo, hi = RANGE.get(k, (lo, hi))
         if k.startswith("bank_slot_") or k.startswith("patch_slot_"):
             fl |= FL["kMomentary"] | FL["kText"] | FL["kTile"] | FL["kNoAuto"]      # list tiles: tap = pick, lit = "<key>_on"
             lo, hi = 0, 1
@@ -92,6 +100,7 @@ out += ["", "static const PSpec g_pspecs[] = {"] + rows + ["};",
         "static const int kNumEngineParams = %d;   // 0 .. this - 1 are the engine's keys" % len(P),
         "static const int kUiParam = %d;            // ui_open: 0 closed, k + 1 = pick-list of g_popups[k]" % len(P),
         "static const int kNumPopups = %d;" % len(popups),
-        "static const int kFavAdd = %d, kFavDel = %d, kRandom = %d, kFavSlots = 64;" % (len(keys) + 79, len(keys) + 80, len(keys) + 81), ""]
+        "static const int kFavAdd = %d, kFavDel = %d, kRandom = %d, kFavSlots = 64;" % (len(keys) + 79, len(keys) + 80, len(keys) + 81),
+        "static const int kFirstAppended = %d;     // engine keys appended after the released table follow the favourite keys" % (len(keys) + 79), ""]
 open(os.path.join(ROOT, "src", "params_gen.h"), "w").write("\n".join(out))
 print("src/params_gen.h: %d params (%d engine, ui_open, %d reserved, %d appended)" % (len(LOCK), len(P), len(popups) - 1, len(APPENDED)))

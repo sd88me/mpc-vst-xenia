@@ -447,9 +447,10 @@ private:
             if (r != lastRev_) { lastRev_ = r; full = true; }
         }
         int changed = 0;
-        for (int i = 0; i < kNumEngineParams; ++i)
+        for (int i = 0; i < kNumParams; ++i)   // the engine's keys: the released ones and those appended after the favourite keys
         {
             const PSpec& s = g_pspecs[i];
+            if (s.flags & (kUi | kReserved | kLocal)) continue;
             const bool moved = hostMoved_[i].exchange(false);
             if (!(moved || full)) continue;
             if (s.flags & kTile)
@@ -479,10 +480,10 @@ private:
         // text readouts: every 100 ms; a changed text bumps the counter (the host re-reads text when the value moves)
         bool textChanged = false;
         if (force || full || tick_ % 10 == 0)
-            for (int i = 0; i < kNumEngineParams; ++i)
+            for (int i = 0; i < kNumParams; ++i)
             {
                 const PSpec& s = g_pspecs[i];
-                if (!(s.flags & kText)) continue;
+                if (!(s.flags & kText) || (s.flags & (kUi | kReserved | kLocal))) continue;
                 const uint32_t h = engineGet(s.key, buf, sizeof buf) ? fnv(buf) | 1u : 1u;
                 if (h == textHash_[(size_t)i]) continue;
                 textHash_[(size_t)i] = h;

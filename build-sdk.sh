@@ -4,7 +4,7 @@
 # compiled in the same image against the plugin framework headers. The 1.x wrapper build is still ./build.sh.
 #   ./build-sdk.sh            gen params, engine archive, plugin .so, folder (plugin.json, version.xml, Plugin Skins, xenia/roms)
 #   ./build-sdk.sh test       tests/run.sh (ASan/UBSan, your ROM) + the builder's host_sim on a native build
-#   ./build-sdk.sh beta       the same as "Xenia 2 Beta" (uid XenB): installs next to the release
+#   ./build-sdk.sh beta       the same as "Xenia 2 Beta" (uid XenB): installs next to the release; carries your ROM and banks
 # MPC_SDK: the plugin builder checkout. MPC_VST: mpc-vst-plugins (wrapper/engine.h). XENIA_ROMS: your ROM folder (default ./roms).
 set -euo pipefail
 cd "$(dirname "$0")"
@@ -61,6 +61,11 @@ json.dump(m, open(folder + "/plugin.json", "w"), indent=2)
 open(folder + "/version.xml", "w").write('<?xml version="1.0" encoding="utf-8"?>\n<plugincontent version="1.0">\n    <version>%s.0</version>\n    <uiversion>0.1.0.0</uiversion>\n</plugincontent>\n' % m["version"])
 PY
 cp release/xenia/roms/PUT_XT_ROM_HERE.txt "$FOLDER/xenia/roms/"; cp LICENSE CREDITS.md "$FOLDER/"
+# a beta for the device gets your ROM and user banks inside its folder (mpc_remote.py update replaces the whole folder); never a release
+if [ "${1:-}" = beta ]; then
+  [ -d "${XENIA_ROMS:-roms}" ] && cp "${XENIA_ROMS:-roms}"/* "$FOLDER/xenia/roms/"
+  [ -d "${XENIA_BANKS:-tests/data/banks}" ] && mkdir -p "$FOLDER/xenia/banks" && cp -r "${XENIA_BANKS:-tests/data/banks}"/. "$FOLDER/xenia/banks/"
+fi
 # the native skin from tools/make_tui.py (skins/); until it exists, the builder's generated default pages
 if [ -f tools/make_tui.py ]; then python3 tools/make_tui.py; fi
 if [ -d skins ]; then cp -r skins/. "$FOLDER/Plugin Skins/"

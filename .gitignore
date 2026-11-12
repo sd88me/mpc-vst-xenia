@@ -13,3 +13,4 @@ __pycache__/
 vst/custom/
 tests/data/*.chunk
 /skins/
+tests/data/banks/

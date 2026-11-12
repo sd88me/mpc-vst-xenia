@@ -26,6 +26,7 @@
 #include <mutex>
 #include <string>
 #include <sys/resource.h>
+#include <sys/stat.h>
 #include <sys/syscall.h>
 #include <thread>
 #include <unistd.h>
@@ -51,7 +52,8 @@ namespace {
 constexpr int kRate = 44100, kBlock = 128;
 constexpr int kRingFrames = 16384;               // power of two
 constexpr int kTargetFill = 1024;                // frames the emulator thread keeps queued (~23 ms)
-constexpr int kBanks = 2, kPerBank = 100, kPatchSlots = 30, kDumpLen = 265;
+constexpr int kBanks = 2, kPerBank = 100, kPatchSlots = 30, kDumpLen = 265;   // kBanks: the ROM's banks A and B (user banks follow)
+constexpr int kBankTiles = 10, kMaxBanks = 64, kMaxPerBank = 256;
 constexpr int kNameOff = 247, kNameLen = 16;     // in a single dump including its sysex header
 constexpr int kParamOff = 7;                     // first parameter byte of a single dump
 constexpr int kEditBuffer = 0x30;                // LocationH::SingleEditBufferMultiMode, location 0 = part 1: the XT boots in Multi mode, where a dump to 0x20 is ignored
@@ -140,6 +142,9 @@ struct Inst {
     bool have[kBanks][kPerBank] = {};
     char cur_name[kNameLen + 1] = "";
     Dump cur;                                                 // the edit buffer as a dump (265 bytes) once a sound is loaded
+    std::atomic<int> bpage{0};                                // the BANKS page's bank tile page
+    struct UBank { std::string name; std::vector<Dump> sounds; std::vector<std::string> names; };
+    std::vector<UBank> ubanks;                                // user banks (<data dir>/banks/), after ROM A and B; fixed after create()
 
     void bump() { rev.fetch_add(1, std::memory_order_relaxed); }
     void set_status(const char *s) {
@@ -232,6 +237,101 @@ void apply_loaded(Inst *in, const Dump &d, int bank, int prog) {
     if (bank >= 0) { in->bank = bank; in->preset = prog; }
     in->bump();
 }
+
+// ---- user banks: every .syx / .mid under <data dir>/banks/ holding XT single dumps is a bank (named after its file or folder)
+// A single dump: F0 3E 0E <dev> 10 <bank> <prog> <256 bytes> <checksum> F7 (265). In a Standard MIDI File the F0 is followed by a
+// length, so dumps are found by their "3E 0E <dev> 10" header and a valid checksum, F0 put back. The all-singles bundle
+// (F0 3E 0E <dev> 10 10 00 <256 x 256 bytes> <cs> F7) splits into 256 sounds.
+Dump edit_dump(const uint8_t *data256) {
+    Dump d = {0xf0, 0x3e, 0x0e, (uint8_t)kDeviceId, 0x10, (uint8_t)kEditBuffer, 0x00};
+    d.insert(d.end(), data256, data256 + 256);
+    d.push_back(0);
+    d.push_back(0xf7);
+    d[d.size() - 2] = checksum(d);
+    return d;
+}
+
+std::string dump_name(const Dump &d) {
+    std::string s;
+    for (int i = 0; i < kNameLen; i++) { const uint8_t c = d[kNameOff + i]; s += (char)(c >= 32 && c < 127 ? c : ' '); }
+    while (!s.empty() && s.back() == ' ') s.pop_back();
+    return s;
+}
+
+std::vector<Dump> parse_sounds(const std::vector<uint8_t> &f) {
+    std::vector<Dump> out;
+    const size_t n = f.size();
+    for (size_t p = 0; p + 4 < n && out.size() < (size_t)kMaxPerBank; p++) {
+        if (f[p] != 0x3e || f[p + 1] != 0x0e || f[p + 3] != 0x10) continue;
+        if (f[p + 4] == 0x10 && p + 65543 < n && f[p + 65543] == 0xf7) {           // all singles: 256 x 256 data bytes
+            for (int i = 0; i < 256 && out.size() < (size_t)kMaxPerBank; i++) out.push_back(edit_dump(&f[p + 6 + i * 256]));
+            p += 65543;
+            continue;
+        }
+        if (p + 263 < n && f[p + 263] == 0xf7) {
+            Dump d(f.begin() + p, f.begin() + p + 264);
+            d.insert(d.begin(), 0xf0);
+            if (checksum(d) != d[d.size() - 2]) continue;                          // not a dump: bytes that look like a header
+            out.push_back(edit_dump(&d[7]));
+            p += 263;
+        }
+    }
+    return out;
+}
+
+void scan_dir(const std::string &dir, const std::string &rel, std::vector<std::pair<std::string, std::string>> &files, int depth) {
+    DIR *d = opendir(dir.c_str());
+    if (!d || depth > 4) { if (d) closedir(d); return; }
+    while (struct dirent *e = readdir(d)) {
+        const std::string nm = e->d_name;
+        if (nm.empty() || nm[0] == '.' || nm.find(':') != std::string::npos) continue;
+        const std::string full = dir + "/" + nm, r = rel.empty() ? nm : rel + "/" + nm;
+        struct stat st;
+        if (stat(full.c_str(), &st) != 0) continue;
+        if (S_ISDIR(st.st_mode)) { scan_dir(full, r, files, depth + 1); continue; }
+        std::string low = nm;
+        for (char &c : low) c = (char)tolower((unsigned char)c);
+        if (low.size() > 4 && (low.compare(low.size() - 4, 4, ".syx") == 0 || low.compare(low.size() - 4, 4, ".mid") == 0) && st.st_size < (8 << 20))
+            files.push_back({r, full});
+    }
+    closedir(d);
+}
+
+void load_user_banks(Inst *in) {
+    std::vector<std::pair<std::string, std::string>> files;
+    scan_dir(in->dir + "/banks", "", files, 0);
+    std::sort(files.begin(), files.end());
+    std::unordered_map<std::string, int> per_folder;
+    for (auto &f : files) { const size_t s = f.first.rfind('/'); per_folder[s == std::string::npos ? "" : f.first.substr(0, s)]++; }
+    for (auto &f : files) {
+        if ((int)in->ubanks.size() + kBanks >= kMaxBanks) break;
+        FILE *fp = fopen(f.second.c_str(), "rb");
+        if (!fp) continue;
+        std::vector<uint8_t> data;
+        uint8_t buf[65536];
+        size_t r;
+        while ((r = fread(buf, 1, sizeof buf, fp)) > 0) data.insert(data.end(), buf, buf + r);
+        fclose(fp);
+        Inst::UBank b;
+        b.sounds = parse_sounds(data);
+        if (b.sounds.empty()) continue;
+        // the name: the folder when it holds only this file ("factory_1997"), else the file name without its extension
+        const size_t s = f.first.rfind('/');
+        const std::string folder = s == std::string::npos ? "" : f.first.substr(0, s), file = s == std::string::npos ? f.first : f.first.substr(s + 1);
+        const std::string top = folder.substr(0, folder.find('/'));
+        b.name = (!folder.empty() && per_folder[folder] == 1) ? folder : (top.empty() ? file.substr(0, file.rfind('.')) : top + " " + file.substr(0, file.rfind('.')));
+        for (char &c : b.name) if (c == '/' || c == '_') c = ' ';
+        for (auto &d : b.sounds) b.names.push_back(dump_name(d));
+        xlog("[banks] %s: %zu sounds (%s)", b.name.c_str(), b.sounds.size(), f.first.c_str());
+        in->ubanks.push_back(std::move(b));
+    }
+}
+
+int nbanks(const Inst *in) { return kBanks + (int)in->ubanks.size(); }
+int bank_count(const Inst *in, int b) { return b < kBanks ? kPerBank : b < nbanks(in) ? (int)in->ubanks[b - kBanks].sounds.size() : 0; }
+std::string bank_label(const Inst *in, int b) { return b < kBanks ? std::string("BANK ") + (char)('A' + b) : b < nbanks(in) ? in->ubanks[b - kBanks].name : ""; }
+bool sound_known(Inst *in, int b, int q) { return b < kBanks ? in->have[b][q] : q < bank_count(in, b); }   // sm held for ROM banks
+std::string sound_name(Inst *in, int b, int q) { return b < kBanks ? std::string(in->names[b][q]) : q < bank_count(in, b) ? in->ubanks[b - kBanks].names[q] : ""; }
 
 // "XNN1 <rom hash>\n" then one "<bank> <prog> <name>" line per sound
 bool load_names(Inst *in, const std::string &path, const char *key) {
@@ -332,7 +432,7 @@ void emu_main(Inst *in) {
     bool dirty[256] = {};
     uint8_t pending[256] = {};
     int next_req = 0, applied_clock = in->clock.load();
-    const int first_bank = in->bank.load() % kBanks;
+    const int first_bank = in->bank.load() < kBanks ? in->bank.load() : 0;
     bool harvest_done = names_cached;
     if (names_cached) in->names_done = true;
     int harvest_passes = 0;
@@ -480,7 +580,8 @@ void emu_main(Inst *in) {
     };
 
     // first sound, and a short run so the ring starts full
-    ask_for_sound(in->bank.load(), in->preset.load());
+    // (a user bank's sound comes from a project's state as a held dump: the first request only waits for the firmware)
+    ask_for_sound(in->bank.load() < kBanks ? in->bank.load() : 0, in->bank.load() < kBanks ? in->preset.load() : 0);
     in->set_status("Warming up...");
     // (the first sound's edit buffer must have arrived, or the first notes play the ROM's power-on state: silence)
     for (int i = 0; (i < kTargetFill / kBlock + 2 || (want.active && i < 4000)) && !in->stop; i++) produce(true);
@@ -525,6 +626,7 @@ void *eng_create(const char *dir) {
     for (auto &r : in->raw) r.store(0);
     for (int i = 0; i < 4; i++) in->play_sel[i] = g_play_default[i];
     for (int i = 0; i < XT_NUM_PARAMS; i++) in->raw[g_xt_params[i].idx].store((uint8_t)g_xt_params[i].def);
+    load_user_banks(in);
     in->th = std::thread(emu_main, in);
     return in;
 }
@@ -537,16 +639,18 @@ void eng_destroy(void *p) {
     delete in;
 }
 
+void select_sound(Inst *in, int bank, int prog);
+
 void eng_midi(void *p, const uint8_t *msg, int len) {
     Inst *in = (Inst *)p;
     if (!in || len < 1 || len > 3 || msg[0] < 0x80 || msg[0] >= 0xf0) return;
     const uint8_t st = msg[0] & 0xf0;
     if (st == 0xc0 && len >= 2) {                         // program change: a sound of the current bank
-        if (msg[1] < kPerBank) { Cmd c; c.type = C_PRESET; c.a = in->bank.load(); c.b = msg[1]; in->preset = msg[1]; in->push(std::move(c)); }
+        if (msg[1] < bank_count(in, in->bank.load())) select_sound(in, in->bank.load(), msg[1]);
         return;
     }
     if (st == 0xb0 && len >= 3 && msg[1] == 0) {          // bank select MSB: bank A / B, takes effect with the next program change
-        if (msg[2] < kBanks) in->bank = msg[2];
+        if (msg[2] < nbanks(in)) in->bank = msg[2];
         return;
     }
     if (st == 0xb0 && len >= 3 && msg[1] == 32) return;
@@ -569,18 +673,22 @@ int slot_key(const char *key, const char *prefix, int max, bool *on) {
     return 0;
 }
 
-int pages(int count = kPerBank) { return (count + kPatchSlots - 1) / kPatchSlots; }
+int pages(int count) { return std::max(1, (count + kPatchSlots - 1) / kPatchSlots); }
 
 void select_sound(Inst *in, int bank, int prog) {
-    bank = std::max(0, std::min(kBanks - 1, bank));
-    prog = std::max(0, std::min(kPerBank - 1, prog));
-    xlog("[sound] select bank %d preset %d", bank, prog);
+    bank = std::max(0, std::min(nbanks(in) - 1, bank));
+    prog = std::max(0, std::min(bank_count(in, bank) - 1, prog));
     in->bank = bank;
     in->preset = prog;
     Cmd c;
-    c.type = C_PRESET;
-    c.a = bank;
-    c.b = prog;
+    if (bank < kBanks) {                    // a ROM sound: the XT sends it, the emulator thread puts it in the edit buffer
+        c.type = C_PRESET;
+        c.a = bank;
+        c.b = prog;
+    } else {                                // a user bank's sound: its dump goes to the edit buffer as it is
+        c.type = C_LOADDUMP;
+        c.dump = in->ubanks[bank - kBanks].sounds[prog];
+    }
     in->push(std::move(c));
     in->bump();
 }
@@ -592,8 +700,9 @@ void restore_state(Inst *in, const char *s) {
         const char *q = strstr(s, k);
         return q ? atoi(q + strlen(k)) : def;
     };
-    in->bank = std::max(0, std::min(kBanks - 1, num("\"bank\":", 0)));
-    in->preset = std::max(0, std::min(kPerBank - 1, num("\"preset\":", 0)));
+    in->bank = std::max(0, std::min(nbanks(in) - 1, num("\"bank\":", 0)));
+    in->preset = std::max(0, std::min(bank_count(in, in->bank) - 1, num("\"preset\":", 0)));
+    in->page = in->preset / kPatchSlots;
     in->gain = std::max(10, std::min(400, num("\"gain\":", 250)));
     in->clock = std::max(10, std::min(100, num("\"clock\":", 100)));
     for (int i = 0; i < 4; i++) {
@@ -622,23 +731,42 @@ void eng_set(void *p, const char *key, const char *val) {
     if (!in || !key || !val) return;
     bool on = false;
     int n;
-    if ((n = slot_key(key, "bank_slot_", kBanks, &on)) && !on) { if (atoi(val)) select_sound(in, n - 1, in->preset); return; }
-    if ((n = slot_key(key, "patch_slot_", kPatchSlots, &on)) && !on) { if (atoi(val) && in->page * kPatchSlots + n - 1 < kPerBank) select_sound(in, in->bank, in->page * kPatchSlots + n - 1); return; }
+    // bank tiles: tile n of the bank page (ROM A, ROM B, then the user banks); a new bank starts on its first sound
+    if ((n = slot_key(key, "bank_slot_", kBankTiles, &on)) && !on) {
+        const int b = in->bpage * kBankTiles + n - 1;
+        if (atoi(val) && b < nbanks(in)) { select_sound(in, b, b == in->bank ? in->preset.load() : 0); in->page = in->preset / kPatchSlots; }
+        return;
+    }
+    if ((n = slot_key(key, "patch_slot_", kPatchSlots, &on)) && !on) {
+        if (atoi(val) && in->page * kPatchSlots + n - 1 < bank_count(in, in->bank)) select_sound(in, in->bank, in->page * kPatchSlots + n - 1);
+        return;
+    }
     if (!strcmp(key, "patch_page_prev")) { if (atoi(val) && in->page > 0) { in->page--; in->bump(); } return; }
-    if (!strcmp(key, "patch_page_next")) { if (atoi(val) && in->page + 1 < pages()) { in->page++; in->bump(); } return; }
+    if (!strcmp(key, "patch_page_next")) { if (atoi(val) && in->page + 1 < pages(bank_count(in, in->bank))) { in->page++; in->bump(); } return; }
+    if (!strcmp(key, "bank_page_prev")) { if (atoi(val) && in->bpage > 0) { in->bpage--; in->bump(); } return; }
+    if (!strcmp(key, "bank_page_next")) { if (atoi(val) && (in->bpage + 1) * kBankTiles < nbanks(in)) { in->bpage++; in->bump(); } return; }
     if (!strcmp(key, "preset")) { select_sound(in, in->bank, atoi(val)); in->page = in->preset / kPatchSlots; return; }
-    if (!strcmp(key, "bank_index")) { select_sound(in, atoi(val), in->preset); return; }
+    if (!strcmp(key, "bank_index")) {
+        const int b = std::max(0, std::min(nbanks(in) - 1, atoi(val)));
+        if (b != in->bank) { select_sound(in, b, std::min(in->preset.load(), bank_count(in, b) - 1)); in->page = in->preset / kPatchSlots; in->bpage = b / kBankTiles; }
+        return;
+    }
     // the stepper arrows send these verbs (momentary, 1 on press); step with wrap-around
     if (!strcmp(key, "preset_next") || !strcmp(key, "preset_prev")) {
         if (atoi(val)) {
-            const int d = !strcmp(key, "preset_next") ? 1 : kPerBank - 1;
-            select_sound(in, in->bank, (in->preset + d) % kPerBank);
+            const int cnt = bank_count(in, in->bank), d = !strcmp(key, "preset_next") ? 1 : cnt - 1;
+            select_sound(in, in->bank, (in->preset + d) % cnt);
             in->page = in->preset / kPatchSlots;
         }
         return;
     }
     if (!strcmp(key, "bank_next") || !strcmp(key, "bank_prev")) {
-        if (atoi(val)) select_sound(in, (in->bank + (!strcmp(key, "bank_next") ? 1 : kBanks - 1)) % kBanks, in->preset);
+        if (atoi(val)) {
+            const int nb = nbanks(in), b = (in->bank + (!strcmp(key, "bank_next") ? 1 : nb - 1)) % nb;
+            select_sound(in, b, std::min(in->preset.load(), bank_count(in, b) - 1));
+            in->page = in->preset / kPatchSlots;
+            in->bpage = b / kBankTiles;
+        }
         return;
     }
     if (!strcmp(key, "random_sound")) {               // a random sound from every bank that has one (never the current one)
@@ -646,9 +774,9 @@ void eng_set(void *p, const char *key, const char *val) {
             std::vector<int> pick;
             {
                 std::lock_guard<std::mutex> l(in->sm);
-                for (int b = 0; b < kBanks; b++)
-                    for (int q = 0; q < kPerBank; q++)
-                        if (in->have[b][q] && !(b == in->bank && q == in->preset)) pick.push_back(b * kPerBank + q);
+                for (int b = 0; b < nbanks(in); b++)
+                    for (int q = 0; q < bank_count(in, b); q++)
+                        if (sound_known(in, b, q) && !(b == in->bank && q == in->preset)) pick.push_back(b * kMaxPerBank + q);
             }
             if (!pick.empty()) {
                 static std::atomic<uint32_t> seed{(uint32_t)std::chrono::steady_clock::now().time_since_epoch().count() | 1u};
@@ -656,8 +784,9 @@ void eng_set(void *p, const char *key, const char *val) {
                 x ^= x << 13; x ^= x >> 17; x ^= x << 5;
                 seed.store(x);
                 const int r = pick[x % pick.size()];
-                select_sound(in, r / kPerBank, r % kPerBank);
+                select_sound(in, r / kMaxPerBank, r % kMaxPerBank);
                 in->page = in->preset / kPatchSlots;
+                in->bpage = in->bank / kBankTiles;
             }
         }
         return;
@@ -708,28 +837,30 @@ int eng_get(void *p, const char *key, char *buf, int n) {
     if (!in || !key || n < 2) return -1;
     bool on = false;
     int k;
-    if ((k = slot_key(key, "bank_slot_", kBanks, &on))) {
-        if (on) return put(buf, n, "%d", k - 1 == in->bank ? 1 : 0);
-        return put(buf, n, "BANK %c", 'A' + k - 1);
+    if ((k = slot_key(key, "bank_slot_", kBankTiles, &on))) {
+        const int b = in->bpage * kBankTiles + k - 1;
+        if (on) return put(buf, n, "%d", b == in->bank ? 1 : 0);
+        return put(buf, n, "%s", bank_label(in, b).c_str());
     }
     if ((k = slot_key(key, "patch_slot_", kPatchSlots, &on))) {
-        const int idx = in->page * kPatchSlots + k - 1;
+        const int idx = in->page * kPatchSlots + k - 1, b = in->bank;
         if (on) return put(buf, n, "%d", idx == in->preset ? 1 : 0);
-        if (idx >= kPerBank) return put(buf, n, "%s", "");
+        if (idx >= bank_count(in, b)) return put(buf, n, "%s", "");
         std::lock_guard<std::mutex> l(in->sm);
-        const int b = in->bank;
-        return put(buf, n, "%03d %s", idx + 1, in->have[b][idx] ? in->names[b][idx] : "");
+        return put(buf, n, "%03d %s", idx + 1, sound_known(in, b, idx) ? sound_name(in, b, idx).c_str() : "");
     }
-    if (!strcmp(key, "patch_page_text")) return put(buf, n, "PAGE %d / %d", in->page + 1, pages());
+    if (!strcmp(key, "patch_page_text")) return put(buf, n, "PAGE %d / %d", in->page + 1, pages(bank_count(in, in->bank)));
+    if (!strcmp(key, "bank_page_text")) return put(buf, n, "BANKS %d / %d", in->bpage + 1, (nbanks(in) + kBankTiles - 1) / kBankTiles);
+    if (!strcmp(key, "bank_count")) return put(buf, n, "%d", nbanks(in));
     if (!strcmp(key, "preset")) return put(buf, n, "%d", in->preset.load());
     if (!strcmp(key, "bank_index")) return put(buf, n, "%d", in->bank.load());
-    if (!strcmp(key, "bank_name")) return put(buf, n, "BANK %c", 'A' + in->bank.load());
+    if (!strcmp(key, "bank_name")) return put(buf, n, "%s", bank_label(in, in->bank).c_str());
     if (!strcmp(key, "preset_name")) {
         std::lock_guard<std::mutex> l(in->sm);
         const int b = in->bank, pr = in->preset;
         // the loaded sound's own name once it is in the edit buffer, the ROM table's before that
-        const char *nm = in->cur_name[0] ? in->cur_name : (in->have[b][pr] ? in->names[b][pr] : "");
-        return put(buf, n, "%03d %s", pr + 1, nm);
+        const std::string nm = in->cur_name[0] ? std::string(in->cur_name) : (sound_known(in, b, pr) ? sound_name(in, b, pr) : std::string());
+        return put(buf, n, "%03d %s", pr + 1, nm.c_str());
     }
     if (!strcmp(key, "rom_name")) { std::lock_guard<std::mutex> l(in->sm); return put(buf, n, "%s", in->rom_name[0] ? in->rom_name : "-"); }
     if (!strcmp(key, "loading_status")) { std::lock_guard<std::mutex> l(in->sm); return put(buf, n, "%s", in->status); }

@@ -110,8 +110,8 @@ static const char *const ch_251[] = {"Filter 1 Cutoff", "Filter 1 Reso", "Filter
 static const char *const g_popups[] = {"play1", "play2", "play3", "play4", "EffectType", "AllocationMode", "Assignment", "Wave", "Aliasing", "TimeQuant", "Clipping", "Accuracy", "GlideType", "GlideMode", "ArpMode", "ArpClock", "ArpPattern", "ArpDirection", "ArpNoteOrder", "ArpVelocity", "F1Type", "F2Type", "F1EnvTrigger", "AmpEnvTrigger", "FreeEnvTrigger", "Lfo1Shape", "Lfo1Sync", "Lfo2Shape", "Lfo2Sync", "WaveEnvTrigger", "WaveKeyOnLoopStart", "WaveKeyOnLoopEnd", "WaveKeyOffLoopStart", "WaveKeyOffLoopEnd", "Mod1Source1", "Mod1Source2", "Mod1Type", "Mod2Source1", "Mod2Source2", "Mod2Type", "Mod3Source1", "Mod3Source2", "Mod3Type", "Mod4Source1", "Mod4Source2", "Mod4Type", "ModDelaySource", "Slot1Source", "Slot1Destination", "Slot2Source", "Slot2Destination", "Slot3Source", "Slot3Destination", "Slot4Source", "Slot4Destination", "Slot5Source", "Slot5Destination", "Slot6Source", "Slot6Destination", "Slot7Source", "Slot7Destination", "Slot8Source", "Slot8Destination", "Slot9Source", "Slot9Destination", "Slot10Source", "Slot10Destination", "Slot11Source", "Slot11Destination", "Slot12Source", "Slot12Destination", "Slot13Source", "Slot13Destination", "Slot14Source", "Slot14Destination", "Slot15Source", "Slot15Destination", "Slot16Source", "Slot16Destination"};
 
 static const PSpec g_pspecs[] = {
-    {"bank_index", "BANK", 0.0f, 1.0f, 0.0f, 1536, nullptr, 0, -1, 0.0f},
-    {"preset", "PRESET", 0.0f, 99.0f, 0.0f, 1536, nullptr, 0, -1, 0.0f},
+    {"bank_index", "BANK", 0.0f, 63.0f, 0.0f, 1536, nullptr, 0, -1, 0.0f},
+    {"preset", "PRESET", 0.0f, 255.0f, 0.0f, 1536, nullptr, 0, -1, 0.0f},
     {"bank_name", "BANK NAME", 0.0f, 1023.0f, 0.0f, 514, nullptr, 0, -1, 0.0f},
     {"preset_name", "PRESET NAME", 0.0f, 1023.0f, 0.0f, 514, nullptr, 0, -1, 0.0f},
     {"bank_prev", "BANK -", 0.0f, 1.0f, 0.0f, 641, nullptr, 0, 0, -1.0f},
@@ -445,9 +445,21 @@ static const PSpec g_pspecs[] = {
     {"fav_add", "+ Favourite", 0.0f, 1.0f, 0.0f, 4609, nullptr, 0, -1, 0.0f},
     {"fav_del", "- Favourite", 0.0f, 1.0f, 0.0f, 4609, nullptr, 0, -1, 0.0f},
     {"random_patch", "Random Patch", 0.0f, 1.0f, 0.0f, 4609, nullptr, 0, -1, 0.0f},
+    {"bank_slot_3", "Bank 3", 0.0f, 1.0f, 0.0f, 771, nullptr, 0, -1, 0.0f},
+    {"bank_slot_4", "Bank 4", 0.0f, 1.0f, 0.0f, 771, nullptr, 0, -1, 0.0f},
+    {"bank_slot_5", "Bank 5", 0.0f, 1.0f, 0.0f, 771, nullptr, 0, -1, 0.0f},
+    {"bank_slot_6", "Bank 6", 0.0f, 1.0f, 0.0f, 771, nullptr, 0, -1, 0.0f},
+    {"bank_slot_7", "Bank 7", 0.0f, 1.0f, 0.0f, 771, nullptr, 0, -1, 0.0f},
+    {"bank_slot_8", "Bank 8", 0.0f, 1.0f, 0.0f, 771, nullptr, 0, -1, 0.0f},
+    {"bank_slot_9", "Bank 9", 0.0f, 1.0f, 0.0f, 771, nullptr, 0, -1, 0.0f},
+    {"bank_slot_10", "Bank 10", 0.0f, 1.0f, 0.0f, 771, nullptr, 0, -1, 0.0f},
+    {"bank_page_prev", "Bank Page -", 0.0f, 1.0f, 0.0f, 513, nullptr, 0, -1, 0.0f},
+    {"bank_page_next", "Bank Page +", 0.0f, 1.0f, 0.0f, 513, nullptr, 0, -1, 0.0f},
+    {"bank_page_text", "Bank Page", 0.0f, 1023.0f, 0.0f, 514, nullptr, 0, -1, 0.0f},
 };
-static const int kNumParams = 335;
+static const int kNumParams = 346;
 static const int kNumEngineParams = 253;   // 0 .. this - 1 are the engine's keys
 static const int kUiParam = 253;            // ui_open: 0 closed, k + 1 = pick-list of g_popups[k]
 static const int kNumPopups = 79;
 static const int kFavAdd = 332, kFavDel = 333, kRandom = 334, kFavSlots = 64;
+static const int kFirstAppended = 332;     // engine keys appended after the released table follow the favourite keys

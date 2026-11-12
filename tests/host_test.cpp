@@ -129,7 +129,7 @@ int main(int argc, char** argv)
     a->dispatcher(a, effGetEffectName, 0, 0, name, 0);
     CHECK(a->uniqueID == (VstInt32)0x58656e41, "uid XenA (%08x)", (unsigned)a->uniqueID);
     CHECK(!std::strcmp(name, XENIA_EXPECT_NAME), "name \"%s\"", name);
-    CHECK(a->numParams == 335, "335 params: 332 frozen + 3 appended (%d)", a->numParams);
+    CHECK(a->numParams == 346, "346 params: 332 frozen + 14 appended (%d)", a->numParams);
     CHECK(a->dispatcher(a, effGetVendorVersion, 0, 0, nullptr, 0) == 2000, "version 2000");
     {
         int bad = 0, i = 0;
@@ -144,7 +144,7 @@ int main(int argc, char** argv)
             i++;
         }
         if (f) std::fclose(f);
-        CHECK(f && bad == 0 && i == 335, "order = params.lock (%d keys, %d differ)", i, bad);
+        CHECK(f && bad == 0 && i == 346, "order = params.lock (%d keys, %d differ)", i, bad);
         CHECK(!std::strcmp(g_pspecs[0].key, "bank_index") && !std::strcmp(g_pspecs[253].key, "ui_open"), "0 = bank_index, 253 = ui_open");
     }
     CHECK(waitReady(a), "booted (%s)", eng(a, "loading_status").c_str());
@@ -244,20 +244,20 @@ int main(int argc, char** argv)
         int changes = 0, bankB = 0;
         for (int k = 0; k < 6; k++)
         {
-            const int s0 = engi(a, "bank_index") * 100 + engi(a, "preset");
+            const int s0 = engi(a, "bank_index") * 1000 + engi(a, "preset");
             a->setParameter(a, RND, 1.0f);
             settle(a, 300);
             xenia_dbg_tick(a);
-            const int s1 = engi(a, "bank_index") * 100 + engi(a, "preset");
+            const int s1 = engi(a, "bank_index") * 1000 + engi(a, "preset");
             changes += s1 != s0;
-            bankB += s1 >= 100;
+            bankB += s1 >= 1000;
             if (k == 0)
-                CHECK(a->getParameter(a, RND) == 0.f && std::lround(plainOf(a, PRESET)) == s1 % 100 && std::lround(plainOf(a, BANK)) == s1 / 100,
+                CHECK(a->getParameter(a, RND) == 0.f && std::lround(plainOf(a, PRESET)) == s1 % 1000 && std::lround(plainOf(a, BANK)) == s1 / 1000,
                       "RANDOM: %d -> %d, host BANK/PRESET follow, button back to 0", s0, s1);
             a->setParameter(a, RND, 0.0f);
         }
         CHECK(changes == 6, "six RANDOM presses, six new sounds (%d)", changes);
-        std::printf("    (%d of 6 landed in bank B)\n", bankB);
+        std::printf("    (%d of 6 landed outside bank A)\n", bankB);
         CHECK(a->numPrograms == 65, "65 programs (current + 64 favourites): %d", a->numPrograms);
         const int fb = engi(a, "bank_index"), fp = engi(a, "preset");
         a->setParameter(a, CUT, norm(CUT, 21));
@@ -287,6 +287,75 @@ int main(int argc, char** argv)
         a->setParameter(a, DEL, 0.0f);
         a->dispatcher(a, effSetProgram, 0, 0, nullptr, 0);
         settle(a);
+    }
+
+    std::printf("== user banks\n");
+    {
+        a->setParameter(a, BANK, norm(BANK, 0));   // start on bank A: the tile page follows the current bank (RANDOM moved it)
+        run(a, 30); xenia_dbg_tick(a);
+        settle(a, 100);
+        const int nb = engi(a, "bank_count");
+        CHECK(nb > 2, "user banks found: %d banks (ROM A/B + %d)", nb, nb - 2);
+        const int BP = idx("bank_page_next"), BT1 = idx("bank_slot_1"), BT3 = idx("bank_slot_3");
+        CHECK(disp(a, BT1) == "BANK A" && disp(a, BT3).size() > 0, "bank tiles: \"%s\", tile 3 \"%s\"", disp(a, BT1).c_str(), disp(a, BT3).c_str());
+        a->setParameter(a, BT3, 1.0f);
+        settle(a, 200);
+        xenia_dbg_tick(a);
+        const std::string un = eng(a, "preset_name");
+        CHECK(engi(a, "bank_index") == 2 && engi(a, "preset") == 0 && std::lround(plainOf(a, BANK)) == 2 && un.size() > 4,
+              "tile 3 loads user bank \"%s\" sound 1: \"%s\" (host BANK %.0f)", eng(a, "bank_name").c_str(), un.c_str(), plainOf(a, BANK));
+        CHECK(a->getParameter(a, BT3) == 1.f, "the user bank's tile is lit");
+        run(a, 200, {{0x90, 60, 100}});
+        CHECK(g_rms > 1e-3, "a user sound plays (rms %.4f)", g_rms);
+        run(a, 300, {{0x80, 60, 0}});
+        a->setParameter(a, NEXT, 1.0f);
+        settle(a, 100);
+        a->setParameter(a, NEXT, 0.0f);
+        settle(a);
+        CHECK(engi(a, "preset") == 1 && eng(a, "preset_name") != un, "PRESET + in a user bank: \"%s\"", eng(a, "preset_name").c_str());
+        a->setParameter(a, idx("preset_prev"), 1.0f); settle(a, 60); a->setParameter(a, idx("preset_prev"), 0.0f); settle(a);
+        a->setParameter(a, idx("preset_prev"), 1.0f); settle(a, 60); a->setParameter(a, idx("preset_prev"), 0.0f); settle(a);
+        const int cnt = engi(a, "preset") + 1;
+        CHECK(cnt >= 1 && eng(a, "patch_page_text").find("/") != std::string::npos, "PRESET - wraps to the bank's last sound (%d), %s", cnt, eng(a, "patch_page_text").c_str());
+        if (nb > 10)
+        {
+            a->setParameter(a, BP, 1.0f); settle(a); a->setParameter(a, BP, 0.0f); settle(a);
+            CHECK(eng(a, "bank_page_text").rfind("BANKS 2", 0) == 0 && disp(a, BT1) != "BANK A", "bank page 2: %s, tile 1 \"%s\"", eng(a, "bank_page_text").c_str(), disp(a, BT1).c_str());
+            a->setParameter(a, idx("bank_page_prev"), 1.0f); settle(a); a->setParameter(a, idx("bank_page_prev"), 0.0f); settle(a);
+        }
+        int user = 0;
+        for (int k = 0; k < 8; k++)
+        {
+            a->setParameter(a, idx("random_patch"), 1.0f);
+            settle(a, 60);
+            a->setParameter(a, idx("random_patch"), 0.0f);
+            settle(a, 10);
+            user += engi(a, "bank_index") >= 2;
+        }
+        CHECK(user > 0, "RANDOM reaches the user banks (%d of 8)", user);
+        // a user sound survives a save and reload (BANK 2 = the first user bank; the tile page follows RANDOM's bank)
+        a->setParameter(a, BANK, norm(BANK, 2));
+        run(a, 30); xenia_dbg_tick(a);
+        settle(a, 100);
+        a->setParameter(a, PRESET, norm(PRESET, 0));
+        settle(a, 100);
+        a->setParameter(a, NEXT, 1.0f); settle(a, 100); a->setParameter(a, NEXT, 0.0f); settle(a);
+        a->setParameter(a, CUT, norm(CUT, 33));
+        settle(a, 60);
+        const std::string uname = eng(a, "preset_name");
+        const std::vector<uint8_t> cu = chunk(a);
+        AEffect* u = open("U");
+        CHECK(u->dispatcher(u, effSetChunk, 0, (VstIntPtr)cu.size(), (void*)cu.data(), 0) == 1, "U takes a chunk saved on a user sound (before its boot)");
+        CHECK(waitReady(u), "U ready");
+        settle(u, 300);
+        xenia_dbg_tick(u);
+        CHECK(engi(u, "bank_index") == 2 && engi(u, "preset") == 1 && engi(u, "F1Cutoff") == 33 && eng(u, "preset_name") == uname,
+              "U: user bank %d sound %d \"%s\", F1 CUTOFF %d", engi(u, "bank_index"), engi(u, "preset") + 1, eng(u, "preset_name").c_str(), engi(u, "F1Cutoff"));
+        run(u, 200, {{0x90, 60, 100}});
+        CHECK(g_rms > 1e-3, "U plays the user sound (rms %.4f)", g_rms);
+        run(u, 50, {{0x80, 60, 0}});
+        u->dispatcher(u, effMainsChanged, 0, 0, nullptr, 0);
+        u->dispatcher(u, effClose, 0, 0, nullptr, 0);
     }
 
     std::printf("== state round trip\n");
