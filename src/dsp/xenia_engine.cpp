@@ -115,7 +115,7 @@ uint8_t checksum(const Dump &d) {     // over the parameter bytes, stored before
 struct Inst {
     std::string dir;
     std::thread th;
-    std::atomic<bool> stop{false}, ready{false}, failed{false};
+    std::atomic<bool> stop{false}, ready{false}, failed{false}, names_done{false};
 
     /* audio ring: written by the emulator thread, drained by render() */
     std::vector<int16_t> ring = std::vector<int16_t>(kRingFrames * 2);
@@ -233,6 +233,42 @@ void apply_loaded(Inst *in, const Dump &d, int bank, int prog) {
     in->bump();
 }
 
+// "XNN1 <rom hash>\n" then one "<bank> <prog> <name>" line per sound
+bool load_names(Inst *in, const std::string &path, const char *key) {
+    FILE *f = fopen(path.c_str(), "r");
+    if (!f) return false;
+    char line[128];
+    bool ok = fgets(line, sizeof line, f) && !strncmp(line, "XNN1 ", 5) && !strncmp(line + 5, key, strlen(key));
+    int count = 0;
+    std::lock_guard<std::mutex> l(in->sm);
+    while (ok && fgets(line, sizeof line, f)) {
+        int b, q, off = 0;
+        if (sscanf(line, "%d %d %n", &b, &q, &off) < 2 || b < 0 || b >= kBanks || q < 0 || q >= kPerBank) continue;
+        line[strcspn(line, "\r\n")] = 0;
+        snprintf(in->names[b][q], sizeof in->names[b][q], "%.*s", kNameLen, line + off);
+        in->have[b][q] = true;
+        count++;
+    }
+    fclose(f);
+    if (count != kBanks * kPerBank) {   // incomplete or for another ROM: scan
+        for (auto &bk : in->have) for (bool &h : bk) h = false;
+        return false;
+    }
+    return true;
+}
+
+void save_names(Inst *in, const std::string &path, const char *key) {
+    const std::string tmp = path + ".tmp";
+    FILE *f = fopen(tmp.c_str(), "w");
+    if (!f) return;
+    fprintf(f, "XNN1 %s\n", key);
+    {
+        std::lock_guard<std::mutex> l(in->sm);
+        for (int b = 0; b < kBanks; b++) for (int q = 0; q < kPerBank; q++) fprintf(f, "%d %d %s\n", b, q, in->names[b][q]);
+    }
+    if (fclose(f) == 0) rename(tmp.c_str(), path.c_str());
+}
+
 void emu_main(Inst *in) {
     tune_thread();
     in->set_status("Looking for the XT ROM...");
@@ -248,6 +284,15 @@ void emu_main(Inst *in) {
     { std::lock_guard<std::mutex> l(in->sm); snprintf(in->rom_name, sizeof in->rom_name, "%s", rom.getFilename().c_str()); }
     in->set_status("Booting the XT (this takes a while)...");
     xlog("[emu] ROM %s", rom.getFilename().c_str());
+    char rom_key[32];
+    {
+        uint64_t h = 1469598103934665603ull;
+        for (uint8_t b : rom.getData()) h = (h ^ b) * 1099511628211ull;
+        snprintf(rom_key, sizeof rom_key, "%016llx", (unsigned long long)h);
+    }
+    const std::string names_cache = in->dir + "/rom-names.cache";
+    const bool names_cached = load_names(in, names_cache, rom_key);
+    if (names_cached) xlog("[names] from %s", names_cache.c_str());
 
     std::unique_ptr<xt::Device> dev;
     std::unique_ptr<synthLib::Plugin> plugin;
@@ -288,11 +333,19 @@ void emu_main(Inst *in) {
     uint8_t pending[256] = {};
     int next_req = 0, applied_clock = in->clock.load();
     const int first_bank = in->bank.load() % kBanks;
-    bool harvest_done = false;
+    bool harvest_done = names_cached;
+    if (names_cached) in->names_done = true;
     int harvest_passes = 0;
     long last_ticks = 0;
     auto last_t = std::chrono::steady_clock::now();
     uint32_t block_no = 0;
+    // The name scan keeps the XT sending dumps for ~4 s; notes that reach it meanwhile can be lost (silence) or their note off can
+    // (a hung note). So the names are cached per ROM (<data dir>/rom-names.cache, keyed by a hash of the ROM) and the scan runs
+    // only once per ROM, pausing for ~2 s after any note.
+    int64_t last_note_block = -100000;
+    // A project's sound given before the boot waits for the firmware's first answer (sent at once, the not-yet-running XT dropped it
+    // and the edit buffer stayed in its power-on state: silence).
+    Dump deferred;
 
     auto ask_for_sound = [&](int bank, int prog) {
         want.active = true; want.bank = bank; want.prog = prog; want.waited = 0;
@@ -308,6 +361,7 @@ void emu_main(Inst *in) {
             case C_MIDI: {
                 synthLib::SMidiEvent e(synthLib::MidiEventSource::Host, c.m[0], c.m[1], c.m[2]);
                 plugin->addMidiEvent(e);
+                if ((c.m[0] & 0xe0) == 0x80) last_note_block = block_no;   // note on / off: the name scan pauses
                 break;
             }
             case C_PARAM:
@@ -326,9 +380,10 @@ void emu_main(Inst *in) {
                 break;
             case C_LOADDUMP:
                 memset(dirty, 0, sizeof dirty);
+                apply_loaded(in, c.dump, -1, 0);
+                if (!in->ready.load()) { deferred = c.dump; break; }   // the firmware may not be up yet: sent when it first answers
                 want.active = false;
                 plugin->addMidiEvent(dump_event(c.dump));
-                apply_loaded(in, c.dump, -1, 0);
                 break;
             case C_INIT:
                 for (int i = 0; i < XT_NUM_PARAMS; i++) {
@@ -349,7 +404,7 @@ void emu_main(Inst *in) {
             sent++;
         }
         // names of the ROM sounds, a few requests per block until every one is known (current bank first)
-        if (!harvest_done && !want.active && (block_no & 3) == 0) {
+        if (!harvest_done && !want.active && (int64_t)block_no - last_note_block > 690 && (block_no & 3) == 0) {
             while (next_req < kBanks * kPerBank) {
                 const int bank = (first_bank + next_req / kPerBank) % kBanks, prog = next_req % kPerBank;
                 next_req++;
@@ -363,7 +418,12 @@ void emu_main(Inst *in) {
                 bool missing = false;
                 { std::lock_guard<std::mutex> l(in->sm); for (int b = 0; b < kBanks && !missing; b++) for (int q = 0; q < kPerBank; q++) if (!in->have[b][q]) { missing = true; break; } }
                 if (missing && ++harvest_passes < 20) { next_req = 0; xlog("[names] pass %d: some names still missing", harvest_passes); }
-                else harvest_done = true;
+                else {
+                    harvest_done = true;
+                    in->names_done = true;
+                    if (!missing) save_names(in, names_cache, rom_key);
+                    xlog("[names] done at block %u%s", block_no, missing ? " (some missing, not cached)" : "");
+                }
             }
         }
         if (want.active && ++want.waited % 200 == 0) { xlog("[sound] still waiting for %d/%d", want.bank, want.prog); plugin->addMidiEvent(request_single(want.bank, want.prog)); }
@@ -391,12 +451,18 @@ void emu_main(Inst *in) {
             if (want.active && bank == want.bank && prog == want.prog) {
                 want.active = false;
                 xlog("[sound] loaded %d/%d \"%s\"", bank, prog, in->names[bank][prog]);
-                Dump d(sx.begin(), sx.end());
-                d[5] = kEditBuffer;
-                d[6] = 0;
-                d[d.size() - 2] = checksum(d);
-                plugin->addMidiEvent(dump_event(d));
-                apply_loaded(in, d, bank, prog);
+                if (!deferred.empty()) {                     // a project's sound given before the boot: it wins over the ROM's
+                    plugin->addMidiEvent(dump_event(deferred));
+                    apply_loaded(in, deferred, -1, 0);
+                    deferred.clear();
+                } else {
+                    Dump d(sx.begin(), sx.end());
+                    d[5] = kEditBuffer;
+                    d[6] = 0;
+                    d[d.size() - 2] = checksum(d);
+                    plugin->addMidiEvent(dump_event(d));
+                    apply_loaded(in, d, bank, prog);
+                }
             }
         }
 
@@ -575,6 +641,27 @@ void eng_set(void *p, const char *key, const char *val) {
         if (atoi(val)) select_sound(in, (in->bank + (!strcmp(key, "bank_next") ? 1 : kBanks - 1)) % kBanks, in->preset);
         return;
     }
+    if (!strcmp(key, "random_sound")) {               // a random sound from every bank that has one (never the current one)
+        if (atoi(val)) {
+            std::vector<int> pick;
+            {
+                std::lock_guard<std::mutex> l(in->sm);
+                for (int b = 0; b < kBanks; b++)
+                    for (int q = 0; q < kPerBank; q++)
+                        if (in->have[b][q] && !(b == in->bank && q == in->preset)) pick.push_back(b * kPerBank + q);
+            }
+            if (!pick.empty()) {
+                static std::atomic<uint32_t> seed{(uint32_t)std::chrono::steady_clock::now().time_since_epoch().count() | 1u};
+                uint32_t x = seed.load();
+                x ^= x << 13; x ^= x >> 17; x ^= x << 5;
+                seed.store(x);
+                const int r = pick[x % pick.size()];
+                select_sound(in, r / kPerBank, r % kPerBank);
+                in->page = in->preset / kPatchSlots;
+            }
+        }
+        return;
+    }
     if (!strcmp(key, "all_notes_off")) { if (atoi(val)) { Cmd c; c.type = C_PANIC; in->push(std::move(c)); } return; }
     if (!strcmp(key, "init_patch")) { if (atoi(val)) { Cmd c; c.type = C_INIT; in->push(std::move(c)); } return; }
     if (!strcmp(key, "dsp_clock")) { in->clock = std::max(10, std::min(100, atoi(val))); return; }
@@ -654,6 +741,8 @@ int eng_get(void *p, const char *key, char *buf, int n) {
     }
     if (!strcmp(key, "dsp_clock")) return put(buf, n, "%d", in->clock.load());
     if (!strcmp(key, "gain")) return put(buf, n, "%d", in->gain.load());
+    if (!strcmp(key, "ready")) return put(buf, n, "%d", in->ready.load() ? 1 : 0);
+    if (!strcmp(key, "names_done")) return put(buf, n, "%d", in->names_done.load() ? 1 : 0);
     if (!strcmp(key, "display_rev")) return put(buf, n, "%u", in->rev.load());
     if (!strcmp(key, "state")) {
         std::lock_guard<std::mutex> l(in->sm);

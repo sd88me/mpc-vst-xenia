@@ -11,3 +11,4 @@ __pycache__/
 *.syx
 /roms/
 vst/custom/
+tests/data/*.chunk
