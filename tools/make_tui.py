@@ -313,8 +313,8 @@ def parse_layout():
     return tabs, order
 
 
-# PLAY: the engine keys get a third key (RANDOM) between them
-PLAY_MOVE = {"all_notes_off": (720, None), "init_patch": (1160, None)}
+# PLAY: status and stats move into the display, so the Engine section holds the keys: RANDOM / +FAV / -FAV, then PANIC / INIT PATCH
+PLAY_MOVE = {"all_notes_off": (850, 254), "init_patch": (1030, 254)}
 
 
 def layout_tab(name, fn, spec):
@@ -344,8 +344,10 @@ def layout_tab(name, fn, spec):
             pos[key] = (cx, cy)
             button(kids, key, "%d %d 56 30" % (cx - 28, cy - 15), save(toggle_image(True), "tg_on.png"), save(toggle_image(False), "tg_off.png"))
         elif kind == "button":
-            cx = PLAY_MOVE.get(key, (cx, None))[0]
+            cx, cy = PLAY_MOVE.get(key, (cx, cy))
             key_button(kids, key, cx, cy, a["label"])
+        elif name == "PLAY" and kind in ("readout", "stepper"):
+            continue                  # drawn in the display below
         elif kind == "readout":
             w, h = int(a["w"]), int(a["h"])
             lcd_box(d, cx - w // 2, cy - h // 2, cx + w // 2, cy + h // 2)
@@ -354,7 +356,7 @@ def layout_tab(name, fn, spec):
             w, h = int(a["w"]), int(a["h"])
             stepper(d, kids, cx, cy, w, h, a["get"], a["prev"], a["next"])
     if name == "PLAY":
-        key_button(kids, "random_patch", 940, 258, "RANDOM")
+        play_display(art, d, kids)
     pages = []
     for sub, blocks in enumerate(auto_blocks(spec, pos, name)):
         p = Page(name, fn, sub)
@@ -365,6 +367,22 @@ def layout_tab(name, fn, spec):
     return pages, art
 
 
+def play_display(art, d, kids):
+    """PLAY's header: one two-row display in the red bezel (bank | sound with step arrows; engine status | stats), and the patch keys."""
+    for x0, y0, x1, y1 in ((740, 158, 840, 182), (1050, 158, 1140, 182)):   # the 1.x "Status" / "Stats" captions: fill from the left
+        art.paste(art.crop((x0 - 110, y0, x1 - 110, y1)), (x0, y0))
+    d.rounded_rectangle((360, 14, 1264, 112), 6, fill=BEZEL_DK)
+    d.rounded_rectangle((364, 18, 1260, 108), 5, fill=BEZEL)
+    display(d, 374, 26, 1250, 100)
+    display_row(d, kids, 374, 1250, 26, 70, [(700, "bank_name", "bank_prev", "bank_next"),
+                                            (1250, "preset_name", "preset_prev", "preset_next")], 28)
+    d.line((380, 71, 1244, 71), fill=LCD_EDGE, width=2)
+    display_row(d, kids, 374, 1250, 72, 100, [(812, "loading_status", None, None), (1250, "engine_stats", None, None)], 19)
+    key_button(kids, "random_patch", 760, 190, "RANDOM", w=150)
+    key_button(kids, "fav_add", 940, 190, "+ FAV", w=150)
+    key_button(kids, "fav_del", 1120, 190, "- FAV", w=150)
+
+
 def stepper(d, kids, cx, cy, w, h, get, prev, nxt):
     """An LCD field with an arrow key either side (the header of PLAY and BANKS)."""
     aw = 40
@@ -373,6 +391,46 @@ def stepper(d, kids, cx, cy, w, h, get, prev, nxt):
     for k, bx, dr in ((prev, cx - w // 2, -1), (nxt, cx + w // 2 - aw, 1)):
         button(kids, k, "%d %d %d %d" % (bx, cy - h // 2, aw, h), save(arrow_image(aw, h, dr, True), "arrow_%d_on.png" % dr),
                save(arrow_image(aw, h, dr, False), "arrow_%d_off.png" % dr))
+
+
+# ---- the combined display: one olive LCD in the red bezel, fields split by printed rules, step arrows printed in ink ---------
+def display(d, x0, y0, x1, y1):
+    """A large backlit LCD (static art): a dark glass edge, a top inner shadow, the 1.x olive with its dot grid."""
+    d.rounded_rectangle((x0 - 3, y0 - 3, x1 + 3, y1 + 3), 5, fill=(74, 16, 10))
+    d.rounded_rectangle((x0, y0, x1, y1), 4, fill=LCD_EDGE)
+    d.rounded_rectangle((x0 + 2, y0 + 2, x1 - 2, y1 - 2), 3, fill=LCD)
+    for y in range(y0 + 5, y1 - 3, 3):
+        for x in range(x0 + 5, x1 - 3, 3):
+            d.point((x, y), fill=LCD_CELL)
+    for i, c in enumerate(((112, 124, 70), (128, 141, 80), (143, 157, 89))):   # the glass shadow under the bezel
+        d.line((x0 + 3, y0 + 2 + i, x1 - 3, y0 + 2 + i), fill=c)
+
+
+def hit_zone(kids, key, x, y, w, h):
+    """An invisible momentary touch zone over a printed arrow (a dark flash while held)."""
+    on = "hit_%dx%d.png" % (w, h)
+    if not os.path.exists(os.path.join(OUT, on)):
+        im = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+        ImageDraw.Draw(im).rounded_rectangle((2, 2, w - 3, h - 3), 4, fill=LCD_INK + (60,))
+        save(im, on)
+    button(kids, key, "%d %d %d %d" % (x, y, w, h), on, CLEAR, name=key + " hit")
+
+
+def display_row(d, kids, x0, x1, y0, y1, fields, size, aw=40):
+    """One LCD row of fields [(x_end, get, prev, next)]: a rule between fields, ink arrows at both ends of a field with prev/next."""
+    xs = x0
+    for i, (xe, get, prev, nxt) in enumerate(fields):
+        if i:
+            d.line((xs, y0 + 6, xs, y1 - 6), fill=LCD_EDGE, width=2)
+        cy = (y0 + y1) // 2
+        pad = aw if prev else 0
+        if prev:
+            for k, ax, dr in ((prev, xs, -1), (nxt, xe - aw, 1)):
+                c, s = ax + aw // 2, 9
+                d.polygon([(c + dr * s * 0.7, cy), (c - dr * s * 0.7, cy - s), (c - dr * s * 0.7, cy + s)], fill=LCD_INK)
+                hit_zone(kids, k, ax, y0, aw, y1 - y0)
+        kids.append(label("%d %d %d %d" % (xs + pad + 10, y0, xe - xs - 2 * pad - 16, y1 - y0), get, size, "ff1f2414", "left verticallyCentred"))
+        xs = xe
 
 
 # Q-Link blocks where the 1.x sets don't make clean blocks of four (rearranged for the hardware groups; the art is unchanged)
@@ -420,11 +478,12 @@ def banks_page(fn):
         d.line((cx + tw // 2 + 12, y, x1, y), fill=BLUE, width=2)
         d.text((cx, y), title, font=hf, fill=BLUE, anchor="mm")
 
-    # header: the red bezel of PLAY's LCD: BANK and PRESET steppers, RANDOM and the favourite keys
+    # header: the red bezel of PLAY's LCD: one display (bank | sound, with step arrows), RANDOM and the favourite keys
     d.rounded_rectangle((8, 6, 1272, 62), 6, fill=BEZEL_DK)
     d.rounded_rectangle((11, 9, 1269, 59), 5, fill=BEZEL)
-    stepper(d, p.kids, 166, 34, 300, 42, "bank_name", "bank_prev", "bank_next")
-    stepper(d, p.kids, 576, 34, 500, 42, "preset_name", "preset_prev", "preset_next")
+    display(d, 46, 13, 830, 55)
+    display_row(d, p.kids, 46, 830, 13, 55, [(330, "bank_name", "bank_prev", "bank_next"),
+                                             (830, "preset_name", "preset_prev", "preset_next")], 26)
     key_button(p.kids, "random_patch", 914, 34, "RANDOM", w=150, h=42)
     key_button(p.kids, "fav_add", 1062, 34, "+ FAV", w=124, h=42)
     key_button(p.kids, "fav_del", 1196, 34, "- FAV", w=124, h=42)
