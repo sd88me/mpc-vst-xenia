@@ -12,3 +12,4 @@ __pycache__/
 /roms/
 vst/custom/
 tests/data/*.chunk
+/skins/
