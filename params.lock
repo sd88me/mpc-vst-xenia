@@ -330,3 +330,6 @@ Slot15Source__open
 Slot15Destination__open
 Slot16Source__open
 Slot16Destination__open
+fav_add
+fav_del
+random_patch

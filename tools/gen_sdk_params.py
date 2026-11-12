@@ -11,7 +11,11 @@ import json, os, sys
 ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
 P = json.load(open(os.path.join(ROOT, "vst", "params.json")))["params"]
 LOCK = [l.strip() for l in open(os.path.join(ROOT, "params.lock")) if l.strip()]
-APPENDED = []                    # (key, name, min, max, default, flags) appended after the released 332, in this order
+APPENDED = [                     # (key, name, min, max, default, flags) appended after the released 332, in this order
+    ("fav_add", "+ Favourite", 0, 1, 0, 4096 | 1 | 512),       # kLocal | kMomentary | kNoAuto: store the current sound as a PRESET-list favourite
+    ("fav_del", "- Favourite", 0, 1, 0, 4096 | 1 | 512),       # remove the current favourite
+    ("random_patch", "Random Patch", 0, 1, 0, 4096 | 1 | 512), # make a new random sound in the edit buffer
+]
 
 keys = [p["key"] for p in P]
 popups = [k[:-len("__open")] for k in LOCK[len(keys):len(keys) + 79]]
@@ -87,6 +91,7 @@ out += ["", "static const PSpec g_pspecs[] = {"] + rows + ["};",
         "static const int kNumParams = %d;" % len(LOCK),
         "static const int kNumEngineParams = %d;   // 0 .. this - 1 are the engine's keys" % len(P),
         "static const int kUiParam = %d;            // ui_open: 0 closed, k + 1 = pick-list of g_popups[k]" % len(P),
-        "static const int kNumPopups = %d;" % len(popups), ""]
+        "static const int kNumPopups = %d;" % len(popups),
+        "static const int kFavAdd = %d, kFavDel = %d, kRandom = %d, kFavSlots = 64;" % (len(keys) + 79, len(keys) + 80, len(keys) + 81), ""]
 open(os.path.join(ROOT, "src", "params_gen.h"), "w").write("\n".join(out))
 print("src/params_gen.h: %d params (%d engine, ui_open, %d reserved, %d appended)" % (len(LOCK), len(P), len(popups) - 1, len(APPENDED)))
