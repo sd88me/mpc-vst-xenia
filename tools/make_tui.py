@@ -9,7 +9,7 @@ controls, at most four blocks per sub-tab (more blocks -> sub-tabs with the same
     python3 tools/make_tui.py              # -> skins/   (build-sdk.sh copies it to Plugin Skins/)
     python3 tools/make_tui.py --preview    # also docs/skin-preview/<tab>.png, composed offline (Titillium at the MPC's text scale)"""
 import hashlib, json, os, re, shutil, sys
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageChops, ImageDraw, ImageFilter, ImageFont
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OUT = os.environ.get("XENIA_SKIN_OUT", os.path.join(ROOT, "skins"))
@@ -39,10 +39,10 @@ def P(key):
 INK = (38, 22, 6)
 BLUE = (22, 118, 178)
 BLUE_HI = (59, 155, 216)
-LCD = (159, 174, 98)
-LCD_CELL = (149, 165, 90)
-LCD_EDGE = (121, 127, 87)
-LCD_INK = (31, 36, 20)
+LCD = (184, 184, 160)         # the XT's display glass (grey-beige) for every LCD-style field, violet characters
+LCD_CELL = (176, 176, 152)
+LCD_EDGE = (104, 100, 140)
+LCD_INK = (56, 38, 84)
 BEZEL = (184, 40, 29)
 BEZEL_DK = (122, 24, 16)
 DARK = (31, 36, 20)
@@ -319,7 +319,7 @@ PLAY_MOVE = {"all_notes_off": (850, 254), "init_patch": (1030, 254)}
 
 def layout_tab(name, fn, spec):
     """One printed page at the layout.conf positions; one Page per sub-tab (same art, other Q-Link blocks)."""
-    art = Image.open(os.path.join(VST_IMG, os.path.basename(spec["art"]))).convert("RGB")
+    art = panel(Image.open(os.path.join(VST_IMG, os.path.basename(spec["art"]))).convert("RGB"))
     d = ImageDraw.Draw(art)
     pos, kids, panels = {}, [], []
     for kind, a in spec["items"]:
@@ -330,7 +330,7 @@ def layout_tab(name, fn, spec):
         if kind == "popup":
             w, h = int(a["w"]), max(int(a["h"]), 36)
             popup_box(d, cx, cy, w, h)
-            kids.append(label("%d %d %d %d" % (cx - w // 2 + 8, cy - h // 2, w - 40, h), key, 21, "ff1f2414", "left verticallyCentred"))
+            kids.append(label("%d %d %d %d" % (cx - w // 2 + 8, cy - h // 2, w - 40, h), key, 21, "ff382654", "left verticallyCentred"))
             kids.append(entry(key + " field", "Button", {"version": 2, "onImage": CLEAR, "offImage": CLEAR, "buttonId": POPUPS.index(key) + 1,
                                                          "numButtonsInGroup": UI_STEPS, "handleName": "Data", "gestureBehaviour": GESTURE},
                               "%d %d %d %d" % (cx - w // 2, cy - h // 2, w, h), remap=P("ui_open")))
@@ -351,7 +351,7 @@ def layout_tab(name, fn, spec):
         elif kind == "readout":
             w, h = int(a["w"]), int(a["h"])
             lcd_box(d, cx - w // 2, cy - h // 2, cx + w // 2, cy + h // 2)
-            kids.append(label("%d %d %d %d" % (cx - w // 2 + 6, cy - h // 2, w - 12, h), key, 21, "ff1f2414"))
+            kids.append(label("%d %d %d %d" % (cx - w // 2 + 6, cy - h // 2, w - 12, h), key, 21, "ff382654"))
         elif kind == "stepper":
             w, h = int(a["w"]), int(a["h"])
             stepper(d, kids, cx, cy, w, h, a["get"], a["prev"], a["next"])
@@ -371,13 +371,13 @@ def play_display(art, d, kids):
     """PLAY's header: one two-row display in the red bezel (bank | sound with step arrows; engine status | stats), and the patch keys."""
     for x0, y0, x1, y1 in ((740, 158, 840, 182), (1050, 158, 1140, 182)):   # the 1.x "Status" / "Stats" captions: fill from the left
         art.paste(art.crop((x0 - 110, y0, x1 - 110, y1)), (x0, y0))
-    d.rounded_rectangle((360, 14, 1264, 112), 6, fill=BEZEL_DK)
-    d.rounded_rectangle((364, 18, 1260, 108), 5, fill=BEZEL)
-    display(d, 374, 26, 1250, 100)
-    display_row(d, kids, 374, 1250, 26, 70, [(700, "bank_name", "bank_prev", "bank_next"),
-                                            (1250, "preset_name", "preset_prev", "preset_next")], 28)
-    d.line((380, 71, 1244, 71), fill=LCD_EDGE, width=2)
-    display_row(d, kids, 374, 1250, 72, 100, [(812, "loading_status", None, None), (1250, "engine_stats", None, None)], 19)
+    art.paste(art.crop((250, 116, 1280, 126)).resize((1030, 116)), (250, 0))     # clear the 1.x red bezel to plain panel
+    lens(d, 300, 2, 1276, 122)
+    display(d, 404, 26, 1180, 100)
+    display_row(d, kids, 404, 1180, 26, 70, [(700, "bank_name", "bank_prev", "bank_next"),
+                                            (1180, "preset_name", "preset_prev", "preset_next")], 28)
+    d.line((410, 71, 1174, 71), fill=(150, 148, 128), width=1)
+    display_row(d, kids, 404, 1180, 72, 100, [(780, "loading_status", None, None), (1180, "engine_stats", None, None)], 19)
     key_button(kids, "random_patch", 760, 190, "RANDOM", w=150)
     key_button(kids, "fav_add", 940, 190, "+ FAV", w=150)
     key_button(kids, "fav_del", 1120, 190, "- FAV", w=150)
@@ -387,23 +387,78 @@ def stepper(d, kids, cx, cy, w, h, get, prev, nxt):
     """An LCD field with an arrow key either side (the header of PLAY and BANKS)."""
     aw = 40
     lcd_box(d, cx - w // 2 + aw, cy - h // 2, cx + w // 2 - aw, cy + h // 2)
-    kids.append(label("%d %d %d %d" % (cx - w // 2 + aw + 12, cy - h // 2, w - 2 * aw - 24, h), get, 22, "ff1f2414", "left verticallyCentred"))
+    kids.append(label("%d %d %d %d" % (cx - w // 2 + aw + 12, cy - h // 2, w - 2 * aw - 24, h), get, 22, "ff382654", "left verticallyCentred"))
     for k, bx, dr in ((prev, cx - w // 2, -1), (nxt, cx + w // 2 - aw, 1)):
         button(kids, k, "%d %d %d %d" % (bx, cy - h // 2, aw, h), save(arrow_image(aw, h, dr, True), "arrow_%d_on.png" % dr),
                save(arrow_image(aw, h, dr, False), "arrow_%d_off.png" % dr))
 
 
+# ---- the Microwave XT panel print: red rings around the data encoder, a few thin cream sweeps -------------------------------
+ARC_CENTRE = (700, 40)       # where the XT's big red encoder sits (top middle); every page shares it, so the rings line up across tabs
+
+
+def panel(art):
+    """Print the XT's ring pattern on a 1.x page: only on the plain orange (captions, headings and rules stay clean)."""
+    w, h = art.size
+    rings = Image.new("L", (w, h), 0)
+    d = ImageDraw.Draw(rings)
+    cx, cy = ARC_CENTRE
+    r, step = 150, 46
+    while r < 1500:
+        d.ellipse((cx - r, cy - r, cx + r, cy + r), outline=150 if r < 400 else 105, width=3 if r < 400 else 2)
+        r += step
+        step = int(step * 1.18)
+    sweeps = Image.new("L", (w, h), 0)
+    ds = ImageDraw.Draw(sweeps)
+    for x0, x1 in ((330, 520), (610, 760), (1070, 1150)):      # the long thin lines that cut across the sections
+        ds.line((x0, 0, x1, h), fill=70, width=2)
+    for r in (520, 980):
+        ds.arc((cx + 300 - r, cy + 900 - r, cx + 300 + r, cy + 900 + r), 200, 300, fill=60, width=2)
+    rgb = art.load()
+    for y in range(h):                       # the 1.x blue headings and rules -> the XT's cream print (keeps the anti-aliasing)
+        for x in range(w):
+            R, G, B = rgb[x, y][:3]
+            if B > 40 and B > R:
+                a = min(1.0, (B - 10) / 168.0)
+                rgb[x, y] = tuple(max(0, min(255, int(v + a * (c - b)))) for v, c, b in zip((R, G, B), HEAD, BLUE))
+    orange = Image.new("L", (w, h), 0)
+    op = orange.load()
+    for y in range(h):
+        for x in range(w):
+            R, G, B = rgb[x, y][:3]
+            if R > 215 and B < 60 and 95 < G < 175:
+                op[x, y] = 255
+    orange = orange.filter(ImageFilter.MinFilter(5))             # keep a little air around captions and rules
+    red = Image.new("RGB", (w, h), (226, 52, 44))
+    cream = Image.new("RGB", (w, h), (255, 214, 120))
+    art = Image.composite(red, art, ImageChops.multiply(rings, orange))
+    art = Image.composite(cream, art, ImageChops.multiply(sweeps, orange))
+    return art
+
+
+def lens(d, x0, y0, x1, y1):
+    """The XT's display lens: a pale periwinkle ellipse with a lit upper edge, the LCD window set into it."""
+    d.ellipse((x0 + 2, y0 + 4, x1 + 2, y1 + 4), fill=(150, 60, 20))                 # its shadow on the panel
+    d.ellipse((x0, y0, x1, y1), fill=(122, 128, 214))
+    d.ellipse((x0 + 3, y0 + 2, x1 - 3, y1 - 4), fill=(160, 166, 240))
+    d.ellipse((x0 + 14, y0 + 6, x1 - 14, y1 - 12), fill=(176, 182, 248))
+    d.ellipse((x0 + 60, y0 + 4, x1 - 160, y0 + (y1 - y0) // 3), fill=(198, 204, 252))  # the highlight across the top
+
+
+HEAD = (255, 236, 168)        # the XT's section print: pale cream italic
+XT_LCD = (184, 184, 160)      # the XT's grey-beige window, dark violet characters
+XT_INK = (56, 38, 84)
+
+
 # ---- the combined display: one olive LCD in the red bezel, fields split by printed rules, step arrows printed in ink ---------
 def display(d, x0, y0, x1, y1):
     """A large backlit LCD (static art): a dark glass edge, a top inner shadow, the 1.x olive with its dot grid."""
-    d.rounded_rectangle((x0 - 3, y0 - 3, x1 + 3, y1 + 3), 5, fill=(74, 16, 10))
-    d.rounded_rectangle((x0, y0, x1, y1), 4, fill=LCD_EDGE)
-    d.rounded_rectangle((x0 + 2, y0 + 2, x1 - 2, y1 - 2), 3, fill=LCD)
-    for y in range(y0 + 5, y1 - 3, 3):
-        for x in range(x0 + 5, x1 - 3, 3):
-            d.point((x, y), fill=LCD_CELL)
-    for i, c in enumerate(((112, 124, 70), (128, 141, 80), (143, 157, 89))):   # the glass shadow under the bezel
-        d.line((x0 + 3, y0 + 2 + i, x1 - 3, y0 + 2 + i), fill=c)
+    d.rectangle((x0 - 3, y0 - 3, x1 + 3, y1 + 3), fill=(92, 96, 150))
+    d.rectangle((x0, y0, x1, y1), fill=XT_LCD)
+    for x in range(x0 + 4, x1 - 3, 12):                                           # the character cells of the 2 x 40 LCD
+        d.line((x, y0 + 4, x, y1 - 4), fill=(176, 176, 152))
+    for i, c in enumerate(((128, 126, 112), (148, 147, 128), (166, 165, 144))):   # the glass shadow under the lens
+        d.line((x0 + 1, y0 + 1 + i, x1 - 1, y0 + 1 + i), fill=c)
 
 
 def hit_zone(kids, key, x, y, w, h):
@@ -421,15 +476,15 @@ def display_row(d, kids, x0, x1, y0, y1, fields, size, aw=40):
     xs = x0
     for i, (xe, get, prev, nxt) in enumerate(fields):
         if i:
-            d.line((xs, y0 + 6, xs, y1 - 6), fill=LCD_EDGE, width=2)
+            d.line((xs, y0 + 6, xs, y1 - 6), fill=XT_INK, width=1)
         cy = (y0 + y1) // 2
         pad = aw if prev else 0
         if prev:
             for k, ax, dr in ((prev, xs, -1), (nxt, xe - aw, 1)):
                 c, s = ax + aw // 2, 9
-                d.polygon([(c + dr * s * 0.7, cy), (c - dr * s * 0.7, cy - s), (c - dr * s * 0.7, cy + s)], fill=LCD_INK)
+                d.polygon([(c + dr * s * 0.7, cy), (c - dr * s * 0.7, cy - s), (c - dr * s * 0.7, cy + s)], fill=XT_INK)
                 hit_zone(kids, k, ax, y0, aw, y1 - y0)
-        kids.append(label("%d %d %d %d" % (xs + pad + 10, y0, xe - xs - 2 * pad - 16, y1 - y0), get, size, "ff1f2414", "left verticallyCentred"))
+        kids.append(label("%d %d %d %d" % (xs + pad + 10, y0, xe - xs - 2 * pad - 16, y1 - y0), get, size, "ff382654", "left verticallyCentred"))
         xs = xe
 
 
@@ -467,23 +522,22 @@ def banks_page(fn):
     """BANKS: the bank tiles (left), the 30 sounds of the page (3 x 10, down the columns), BANK / PRESET / PAGE steppers in the red header,
     RANDOM and the favourite keys. Tile names are Value labels UNDER transparent Buttons (a label on top would swallow the tap)."""
     p = Page("BANKS", fn)
-    art = Image.open(os.path.join(VST_IMG, "page_BANKS.png")).convert("RGB")
+    art = panel(Image.open(os.path.join(VST_IMG, "page_BANKS.png")).convert("RGB"))
     d = ImageDraw.Draw(art)
     hf = F(22, os.path.join(LIB, "LiberationSans-BoldItalic.ttf"))
 
     def heading(x0, x1, y, title):
         tw = int(hf.getlength(title))
         cx = (x0 + x1) // 2
-        d.line((x0, y, cx - tw // 2 - 12, y), fill=BLUE, width=2)
-        d.line((cx + tw // 2 + 12, y, x1, y), fill=BLUE, width=2)
-        d.text((cx, y), title, font=hf, fill=BLUE, anchor="mm")
+        d.line((x0, y, cx - tw // 2 - 12, y), fill=HEAD, width=2)
+        d.line((cx + tw // 2 + 12, y, x1, y), fill=HEAD, width=2)
+        d.text((cx, y), title, font=hf, fill=HEAD, anchor="mm")
 
     # header: the red bezel of PLAY's LCD: one display (bank | sound, with step arrows), RANDOM and the favourite keys
-    d.rounded_rectangle((8, 6, 1272, 62), 6, fill=BEZEL_DK)
-    d.rounded_rectangle((11, 9, 1269, 59), 5, fill=BEZEL)
-    display(d, 46, 13, 830, 55)
-    display_row(d, p.kids, 46, 830, 13, 55, [(330, "bank_name", "bank_prev", "bank_next"),
-                                             (830, "preset_name", "preset_prev", "preset_next")], 26)
+    lens(d, 0, 0, 880, 68)
+    display(d, 60, 13, 820, 55)
+    display_row(d, p.kids, 60, 820, 13, 55, [(340, "bank_name", "bank_prev", "bank_next"),
+                                             (820, "preset_name", "preset_prev", "preset_next")], 26)
     key_button(p.kids, "random_patch", 914, 34, "RANDOM", w=150, h=42)
     key_button(p.kids, "fav_add", 1062, 34, "+ FAV", w=124, h=42)
     key_button(p.kids, "fav_del", 1196, 34, "- FAV", w=124, h=42)
@@ -492,7 +546,7 @@ def banks_page(fn):
 
     def tile(key, x, y, w, h):
         lcd_box(d, x, y, x + w - 1, y + h - 1)
-        p.kids.append(label("%d %d %d %d" % (x + 10, y, w - 16, h), key, 21, "ff1f2414", "left verticallyCentred"))
+        p.kids.append(label("%d %d %d %d" % (x + 10, y, w - 16, h), key, 21, "ff382654", "left verticallyCentred"))
         on = "tile_on_%dx%d.png" % (w, h)
         if not os.path.exists(os.path.join(OUT, on)):
             save(lit.resize((w, h)), on)
@@ -503,12 +557,12 @@ def banks_page(fn):
     for i in range(10):
         tile("bank_slot_%d" % (i + 1), 20, 112 + 45 * i, 280, 41)
     stepper(d, p.kids, 160, 584, 280, 40, "bank_page_text", "bank_page_prev", "bank_page_next")
-    d.line((312, 84, 312, 616), fill=BLUE, width=2)
+    d.line((312, 84, 312, 616), fill=HEAD, width=2)
     # sounds of the current bank, 30 per page (down the columns), the page stepper on the heading line
     hf2 = hf
-    d.line((326, 92, 470, 92), fill=BLUE, width=2)
-    d.text((540, 92), "Sounds", font=hf2, fill=BLUE, anchor="mm")
-    d.line((610, 92, 950, 92), fill=BLUE, width=2)
+    d.line((326, 92, 470, 92), fill=HEAD, width=2)
+    d.text((540, 92), "Sounds", font=hf2, fill=HEAD, anchor="mm")
+    d.line((610, 92, 950, 92), fill=HEAD, width=2)
     stepper(d, p.kids, 1112, 92, 300, 38, "patch_page_text", "patch_page_prev", "patch_page_next")
     for c in range(3):
         for r in range(10):
