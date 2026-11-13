@@ -4,5 +4,12 @@
     "device": "MPC Live III (Gen2)",
     "firmware": "3.9.1",
     "date": "2026-10-27"
+  },
+  {
+    "version": "1.0.0",
+    "device": "MPC Live III (Gen2)",
+    "firmware": "MPC OS 3.10.1",
+    "date": "2026-11-13",
+    "note": "Tested as the identical beta build (Xenia 2 Beta, own uid) from VST2 Plugins: loads, plays, every page, pick-lists, keys, user SysEx banks (20 sets), RANDOM, favourites, and the Classic / Shadow Edition switch checked on the device. Not tried on the device: a 0.1.2 project, save/reload, the install.sh upgrade."
   }
 ]
