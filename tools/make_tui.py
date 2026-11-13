@@ -289,7 +289,10 @@ def round_key_image(w, h, caption, lit, r, size):
     d.ellipse((lx - lr, ly - lr, lx + lr, ly + lr), fill=(255, 64, 40, 255) if lit else (120, 30, 22, 255))
     d.ellipse((lx - lr // 2 - S, ly - lr // 2 - S, lx, ly), fill=(255, 190, 170, 255) if lit else (160, 70, 60, 255))
     im = im.resize((w, h), Image.LANCZOS)
-    ImageDraw.Draw(im).text((w // 2, h - size // 2 - 2), caption, font=F(size), fill=T(INK, (220, 220, 214)) + (255,), anchor="mm")
+    lines = caption.split("\n")
+    for i, ln in enumerate(lines):         # one caption line, or two (SHADOW / EDITION) stacked under the cap
+        ImageDraw.Draw(im).text((w // 2, h - size // 2 - 2 - (len(lines) - 1 - i) * (size + 1)), ln, font=F(size),
+                                fill=T(INK, (220, 220, 214)) + (255,), anchor="mm")
     return im
 
 
@@ -442,7 +445,7 @@ def play_display(art, d, kids):
     key_button(kids, "random_patch", 672, 222, "RANDOM")
     key_button(kids, "fav_add", 780, 222, "+ FAV")
     key_button(kids, "fav_del", 888, 222, "- FAV")
-    key_button(kids, "skin", 1212, 222, "SHADOW")   # a latching key: its LED lit = the Shadow Edition skin (for every Xenia)
+    key_button(kids, "skin", 1212, 226, "SHADOW\nEDITION", h=92)   # latching: LED lit = the Shadow Edition skin (every Xenia); taller image (two caption lines), the cap lines up with the row
 
 
 def knob_type(key):
@@ -668,22 +671,61 @@ def banks_page(fn):
         d.line((x, y, x + w - 1, y), fill=TILE_LINE)
         d.line((x, y + h - 1, x + w - 1, y + h - 1), fill=TILE_LINE)
 
+    smoke = os.environ.get("XENIA_TILES", "classic") == "smoke"
+    # light smoke: a faint see-through pane with a fine edge, light print; selected = a lit LED and a light frame
+    SM_FILL, SM_EDGE, SM_TEXT, SM_SEL = T(((40, 14, 0, 64), (60, 20, 0, 90), "fffff6dc", (255, 240, 200)),
+                                          ((255, 255, 255, 22), (255, 255, 255, 52), "ffe6e6e0", TEAL))
+    layer = Image.new("RGBA", art.size, (0, 0, 0, 0))
+    ld = ImageDraw.Draw(layer)
+    on_cache = {}
+
+    def smoke_on(w, h):
+        S = 4
+        im = Image.new("RGBA", (w * S, h * S), (0, 0, 0, 0))
+        dd = ImageDraw.Draw(im)
+        dd.rounded_rectangle((0, 0, w * S - 1, h * S - 1), 5 * S, fill=SM_SEL + (40,), outline=SM_SEL + (235,), width=2 * S)
+        lx, ly, lr = 14 * S, h * S // 2, 5 * S
+        glow = Image.new("RGBA", im.size, (0, 0, 0, 0))
+        ImageDraw.Draw(glow).ellipse((lx - 3 * lr, ly - 3 * lr, lx + 3 * lr, ly + 3 * lr), fill=(255, 60, 30, 160))
+        im.alpha_composite(glow.filter(ImageFilter.GaussianBlur(4 * S)))
+        dd = ImageDraw.Draw(im)
+        dd.ellipse((lx - lr - S, ly - lr - S, lx + lr + S, ly + lr + S), fill=(40, 14, 8, 255))
+        dd.ellipse((lx - lr, ly - lr, lx + lr, ly + lr), fill=(255, 64, 40, 255))
+        dd.ellipse((lx - lr // 2 - S, ly - lr // 2 - S, lx, ly), fill=(255, 190, 170, 255))
+        return im.resize((w, h), Image.LANCZOS)
+
+    def pane(x, y, w, h):
+        ld.rounded_rectangle((x, y, x + w - 1, y + h - 1), 5, fill=SM_FILL, outline=SM_EDGE, width=1)
+
     def tile(key, x, y, w, h):
-        flat_tile(x, y, w, h)
-        p.kids.append(label("%d %d %d %d" % (x + 10, y, w - 16, h), key, 24, "ff1f2414", "left verticallyCentred"))
-        on = "tile_on_%dx%d.png" % (w, h)
-        if not os.path.exists(os.path.join(OUT, on)):
-            save(tile_on(w, h), on)
+        if smoke:
+            pane(x, y, w, h)
+            p.kids.append(label("%d %d %d %d" % (x + 28, y, w - 34, h), key, 21, SM_TEXT, "left verticallyCentred"))
+            if (w, h) not in on_cache:
+                on_cache[(w, h)] = save(smoke_on(w, h), "tilesmoke_on_%dx%d.png" % (w, h))
+            on = on_cache[(w, h)]
+        else:
+            flat_tile(x, y, w, h)
+            p.kids.append(label("%d %d %d %d" % (x + 10, y, w - 16, h), key, 24, "ff1f2414", "left verticallyCentred"))
+            on = "tile_on_%dx%d.png" % (w, h)
+            if not os.path.exists(os.path.join(OUT, on)):
+                save(tile_on(w, h), on)
         button(p.kids, key, "%d %d %d %d" % (x, y, w, h), on, CLEAR, name=key + " tile")
 
     def page_stepper(cx, cy, w, h, get, prev, nxt):
         """BANKS 1/3 and PAGE 1/4: a field like the tiles (not an LCD), dark green arrows printed either side on the panel."""
         aw, x0, y0 = 40, cx - w // 2, cy - h // 2
-        flat_tile(x0 + aw, y0, w - 2 * aw, h)
-        p.kids.append(label("%d %d %d %d" % (x0 + aw, y0, w - 2 * aw, h), get, 22, "ff1f2414"))
+        if smoke:
+            pane(x0 + aw, y0, w - 2 * aw, h)
+            p.kids.append(label("%d %d %d %d" % (x0 + aw, y0, w - 2 * aw, h), get, 21, SM_TEXT))
+            ink = tuple(int(SM_TEXT[i:i + 2], 16) for i in (2, 4, 6))
+        else:
+            flat_tile(x0 + aw, y0, w - 2 * aw, h)
+            p.kids.append(label("%d %d %d %d" % (x0 + aw, y0, w - 2 * aw, h), get, 22, "ff1f2414"))
+            ink = T(TILE_SEL, (210, 210, 204))
         for k, bx, dr in ((prev, x0, -1), (nxt, x0 + w - aw, 1)):
             c, yy, sz = bx + aw // 2, y0 + h // 2, 10
-            d.polygon([(c + dr * sz * 0.7, yy), (c - dr * sz * 0.7, yy - sz), (c - dr * sz * 0.7, yy + sz)], fill=T(TILE_SEL, (210, 210, 204)))
+            d.polygon([(c + dr * sz * 0.7, yy), (c - dr * sz * 0.7, yy - sz), (c - dr * sz * 0.7, yy + sz)], fill=ink)
             hit_zone(p.kids, k, bx, y0, aw, h)
 
     # banks: ROM A, ROM B, then the user banks (xenia/banks/), ten per page
@@ -702,6 +744,8 @@ def banks_page(fn):
         for r in range(10):
             tile("patch_slot_%d" % (c * 10 + r + 1), 326 + c * 315, 120 + r * 49, 307, 44)
     p.qgroup((14, 8, 828, 60), ["bank_index", "preset"])
+    if smoke:
+        art = Image.alpha_composite(art.convert("RGBA"), layer).convert("RGB")
     return p, art
 
 
