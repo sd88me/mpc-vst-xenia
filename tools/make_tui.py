@@ -583,29 +583,49 @@ def banks_page(fn):
     key_button(p.kids, "random_patch", 924, 36, "RANDOM", w=128, h=72, r=19, size=15)
     key_button(p.kids, "fav_add", 1056, 36, "+ FAV", w=128, h=72, r=19, size=15)
     key_button(p.kids, "fav_del", 1188, 36, "- FAV", w=128, h=72, r=19, size=15)
-    lit = Image.new("RGBA", (300, 60), (0, 0, 0, 0))
-    ImageDraw.Draw(lit).rounded_rectangle((0, 0, 299, 59), 4, outline=BLUE, width=4, fill=(22, 118, 178, 60))
+    # the bank / sound tiles as in the released 0.1.2: flat olive, a thin teal line top and bottom, a dark green frame when selected
+    TILE, TILE_LINE, TILE_SEL = (159, 174, 98), (29, 92, 75), (43, 58, 20)
+
+    def tile_on(w, h):
+        im = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+        ImageDraw.Draw(im).rectangle((0, 0, w - 1, h - 1), outline=TILE_SEL + (255,), width=3)
+        return im
+
+    def flat_tile(x, y, w, h):
+        d.rectangle((x, y, x + w - 1, y + h - 1), fill=TILE)
+        d.line((x, y, x + w - 1, y), fill=TILE_LINE)
+        d.line((x, y + h - 1, x + w - 1, y + h - 1), fill=TILE_LINE)
 
     def tile(key, x, y, w, h):
-        lcd_box(d, x, y, x + w - 1, y + h - 1)
-        p.kids.append(label("%d %d %d %d" % (x + 10, y, w - 16, h), key, 21, "ff161a08", "left verticallyCentred"))
+        flat_tile(x, y, w, h)
+        p.kids.append(label("%d %d %d %d" % (x + 10, y, w - 16, h), key, 24, "ff1f2414", "left verticallyCentred"))
         on = "tile_on_%dx%d.png" % (w, h)
         if not os.path.exists(os.path.join(OUT, on)):
-            save(lit.resize((w, h)), on)
+            save(tile_on(w, h), on)
         button(p.kids, key, "%d %d %d %d" % (x, y, w, h), on, CLEAR, name=key + " tile")
+
+    def page_stepper(cx, cy, w, h, get, prev, nxt):
+        """BANKS 1/3 and PAGE 1/4: a field like the tiles (not an LCD), dark green arrows printed either side on the panel."""
+        aw, x0, y0 = 40, cx - w // 2, cy - h // 2
+        flat_tile(x0 + aw, y0, w - 2 * aw, h)
+        p.kids.append(label("%d %d %d %d" % (x0 + aw, y0, w - 2 * aw, h), get, 22, "ff1f2414"))
+        for k, bx, dr in ((prev, x0, -1), (nxt, x0 + w - aw, 1)):
+            c, yy, sz = bx + aw // 2, y0 + h // 2, 10
+            d.polygon([(c + dr * sz * 0.7, yy), (c - dr * sz * 0.7, yy - sz), (c - dr * sz * 0.7, yy + sz)], fill=TILE_SEL)
+            hit_zone(p.kids, k, bx, y0, aw, h)
 
     # banks: ROM A, ROM B, then the user banks (xenia/banks/), ten per page
     heading(14, 300, 92, "Banks")
     for i in range(10):
         tile("bank_slot_%d" % (i + 1), 20, 112 + 45 * i, 280, 41)
-    stepper(d, p.kids, 160, 584, 280, 40, "bank_page_text", "bank_page_prev", "bank_page_next")
+    page_stepper(160, 584, 280, 40, "bank_page_text", "bank_page_prev", "bank_page_next")
     d.line((312, 84, 312, 616), fill=BLUE, width=2)
     # sounds of the current bank, 30 per page (down the columns), the page stepper on the heading line
     hf2 = hf
     d.line((326, 92, 470, 92), fill=BLUE, width=2)
     d.text((540, 92), "Sounds", font=hf2, fill=BLUE, anchor="mm")
     d.line((610, 92, 950, 92), fill=BLUE, width=2)
-    stepper(d, p.kids, 1112, 92, 300, 38, "patch_page_text", "patch_page_prev", "patch_page_next")
+    page_stepper(1112, 92, 300, 38, "patch_page_text", "patch_page_prev", "patch_page_next")
     for c in range(3):
         for r in range(10):
             tile("patch_slot_%d" % (c * 10 + r + 1), 326 + c * 315, 120 + r * 49, 307, 44)
@@ -677,6 +697,8 @@ def preview(pages, arts, defs, open_list=None):
                         s = s[:-1]
                     s = s.rstrip() + "..."
                 d.text((x + w / 2 if cen else x + 2, y + h / 2), s, font=f, fill=col, anchor="mm" if cen else "lm")
+            elif cd["type"] == "Button" and cd["name"] in ("bank_slot_1 tile", "patch_slot_1 tile"):
+                im.alpha_composite(Image.open(os.path.join(OUT, cd["data"]["onImage"])).convert("RGBA"), (x, y))
             elif cd["type"] == "Button" and cd["data"]["offImage"] != CLEAR:
                 im.alpha_composite(Image.open(os.path.join(OUT, cd["data"]["offImage"])).convert("RGBA"), (x, y))
             elif cd["type"] in defs:
