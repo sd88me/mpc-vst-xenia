@@ -271,7 +271,7 @@ def round_key_image(w, h, caption, lit, r, size):
     S = 4
     im = Image.new("RGBA", (w * S, h * S), (0, 0, 0, 0))
     d = ImageDraw.Draw(im)
-    cx, cy = w * S // 2, (r + 3) * S
+    cx, cy = w * S // 2, (r + 9) * S       # room above the cap for the LED (up and right of it)
     d.ellipse((cx - r * S + 2 * S, cy - r * S + 4 * S, cx + r * S + 2 * S, cy + r * S + 4 * S), fill=(60, 20, 0, 110))   # shadow
     d.ellipse((cx - r * S, cy - r * S, cx + r * S, cy + r * S), fill=(22, 22, 22, 255))                                  # skirt
     for i in range(r * S - 3 * S, 0, -S):        # the cap: lit from the upper left like the knobs
@@ -671,10 +671,12 @@ def banks_page(fn):
         d.line((x, y, x + w - 1, y), fill=TILE_LINE)
         d.line((x, y + h - 1, x + w - 1, y + h - 1), fill=TILE_LINE)
 
-    smoke = os.environ.get("XENIA_TILES", "classic") == "smoke"
-    # light smoke: a faint see-through pane with a fine edge, light print; selected = a lit LED and a light frame
-    SM_FILL, SM_EDGE, SM_TEXT, SM_SEL = T(((40, 14, 0, 64), (60, 20, 0, 90), "fffff6dc", (255, 240, 200)),
-                                          ((255, 255, 255, 22), (255, 255, 255, 52), "ffe6e6e0", TEAL))
+    style = os.environ.get("XENIA_TILES", "classic")
+    smoke = style in ("smoke", "clear")
+    # smoke: a faint see-through pane with a fine edge, light print; clear: only the fine edge. Selected = a lit LED and a light frame
+    a_fill = 0 if style == "clear" else 1
+    SM_FILL, SM_EDGE, SM_TEXT, SM_SEL = T(((40, 14, 0, 30 * a_fill), (70, 24, 0, 110), "fffff6dc", (255, 240, 200)),
+                                          ((255, 255, 255, 10 * a_fill), (255, 255, 255, 60), "ffe6e6e0", TEAL))
     layer = Image.new("RGBA", art.size, (0, 0, 0, 0))
     ld = ImageDraw.Draw(layer)
     on_cache = {}
