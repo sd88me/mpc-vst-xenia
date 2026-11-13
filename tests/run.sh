@@ -3,7 +3,8 @@
 # real time. Must print OK. XENIA_ROMS: a folder with your Microwave XT/II ROM (default ./roms). XENIA_NAME: the build's name (beta tests).
 set -euo pipefail
 cd "$(dirname "$0")/.."
-SDK="${MPC_SDK:-$HOME/mpc-310-private/mpc-plugin-builder-sdk}"
+SDK="${MPC_SDK:-$HOME/mpc-plugin-builder-sdk}"
+[ -f "$SDK/framework/mpc_plugin.h" ] || [ -n "${MPC_SDK:-}" ] || SDK="$HOME/mpc-310-private/mpc-plugin-builder-sdk"   # its older place
 MV="${MPC_VST:-$HOME/mpc-vst-plugins}"
 ROMS="$(cd "${XENIA_ROMS:-roms}" && pwd)"
 python3 tools/gen_sdk_params.py >/dev/null
