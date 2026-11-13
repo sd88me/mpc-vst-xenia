@@ -123,17 +123,19 @@ FOCUS = {"version": 1, "backgroundColour": "00000000", "outlineColour": "ff1676b
 
 
 def definitions():
-    knob = component([
-        entry("focus", "Focus", FOCUS, "-6 -6 %d %d" % (KNOB + 12, KNOB + 12), visible="WhenFocussed"),
-        entry("knob", "Knob", {"version": 3, "knobType": "FilmStrip", "filmStrip": "knob_xt.png", "numFrames": 101, "invert": False,
-                               "dragOrientation": "Vertical", "handleName": "Data"}, "0 0 %d %d" % (KNOB, KNOB)),
-    ], actions=[act("Mouse Down", "Q-Link"), act("Double Click", "Show Overlay", "knob overlay"), act("Enter Pressed", "Show Overlay", "knob overlay")])
+    def knob_def(strip):
+        return component([
+            entry("focus", "Focus", FOCUS, "-6 -6 %d %d" % (KNOB + 12, KNOB + 12), visible="WhenFocussed"),
+            entry("knob", "Knob", {"version": 3, "knobType": "FilmStrip", "filmStrip": strip, "numFrames": 101, "invert": False,
+                                   "dragOrientation": "Vertical", "handleName": "Data"}, "0 0 %d %d" % (KNOB, KNOB)),
+        ], actions=[act("Mouse Down", "Q-Link"), act("Double Click", "Show Overlay", "knob overlay"), act("Enter Pressed", "Show Overlay", "knob overlay")])
+    knob = knob_def("knob_xt.png")
     knob_overlay = component([entry("overlay", "KnobOverlay", Obj(
         ("version", 2), ("version", 1),
         ("actions", [{"version": 1, "onAction": "Focus Lost", "handler": "Focus Lost", "handleName": "Focus Lost", "additionalData": ""}]),
         ("overlayType", "Knob With Header"), ("scaleType", "Linear"), ("polarityType", "Unipolar"),
         ("showMinusSign", True), ("handleName", "Data")), "0 0 1280 800", focus="Yes")], ignore=True)
-    return [{"key": "xknob", "value": knob}, {"key": "knob overlay", "value": knob_overlay}]
+    return [{"key": "xknob", "value": knob}, {"key": "xknob_red", "value": knob_def("knob_xt_red.png")}, {"key": "knob overlay", "value": knob_overlay}]
 
 
 # ---- art ---------------------------------------------------------------------------------------------------------------------
@@ -205,14 +207,14 @@ def list_key(w, h, caption, lit, size=15):
     im = Image.new("RGBA", (w, h), (0, 0, 0, 0))
     d = ImageDraw.Draw(im)
     if lit:
-        d.rounded_rectangle((0, 0, w - 1, h - 1), 3, fill=BLUE, outline=BLUE_HI, width=2)
+        d.rounded_rectangle((0, 0, w - 1, h - 1), 3, fill=LCD_INK, outline=LCD, width=2)   # LCD inverse: the current choice
     else:
         d.rounded_rectangle((0, 0, w - 1, h - 1), 3, fill=LCD, outline=LCD_EDGE, width=1)
     f = F(size, TIT_B)
     while f.getlength(caption) > w - 10 and size > 10:
         size -= 1
         f = F(size, TIT_B)
-    d.text((w // 2, h // 2), caption, font=f, fill=WHITE if lit else LCD_INK, anchor="mm")
+    d.text((w // 2, h // 2), caption, font=f, fill=(198, 222, 86) if lit else LCD_INK, anchor="mm")
     return im
 
 
@@ -223,7 +225,21 @@ def knob_strip():
     out = Image.new("RGBA", (KNOB, KNOB * n), (0, 0, 0, 0))
     for i in range(n):
         out.paste(src.crop((0, i * fh, fh, (i + 1) * fh)).resize((KNOB, KNOB), Image.LANCZOS), (0, i * KNOB))
-    return save(out, "knob_xt.png")
+    save(out, "knob_xt.png")
+    red = out.copy()                       # the XT's red caps (Cutoff, Wavetable): the grey body turned red, the pointer cream
+    px = red.load()
+    for y in range(red.height):
+        for x in range(KNOB):
+            r, g, b, a = px[x, y]
+            if not a:
+                continue
+            if r - b > 60:                 # the orange pointer
+                px[x, y] = (250, 236, 214, a)
+            else:
+                l = (r + g + b) / 3.0
+                px[x, y] = (min(255, int(l * 2.5 + 18)), int(l * 0.42), int(l * 0.36), a)
+    save(red, "knob_xt_red.png")
+    return "knob_xt.png"
 
 
 CLEAR = "clear.png"
@@ -304,9 +320,10 @@ def pick_panel(key, opts):
     if ck not in PICK_DEFS:
         im = Image.new("RGBA", (pw, ph), (0, 0, 0, 0))
         d = ImageDraw.Draw(im)
-        d.rounded_rectangle((0, 0, pw - 1, ph - 1), 8, fill=BEZEL_DK)
-        d.rounded_rectangle((3, 3, pw - 4, ph - 4), 7, fill=BEZEL)
-        d.text((16, hdr // 2 + 1), "SELECT", font=F(19, os.path.join(LIB, "LiberationSans-BoldItalic.ttf")), fill=WHITE, anchor="lm")
+        d.rounded_rectangle((0, 0, pw - 1, ph - 1), 8, fill=(16, 16, 17))          # charcoal, like the keys: fits both panels
+        d.rounded_rectangle((2, 2, pw - 3, ph - 3), 7, fill=(46, 47, 49))
+        d.line((10, 3, pw - 11, 3), fill=(74, 75, 78))
+        d.text((16, hdr // 2 + 1), "SELECT", font=F(19, os.path.join(LIB, "LiberationSans-BoldItalic.ttf")), fill=(214, 214, 208), anchor="lm")
         kids = [entry("panel", "Image", {"version": 2, "imageType": "Regular", "colour": "0", "image": save(im, ck + "_bg.png")}, "0 0 %d %d" % (pw, ph))]
         size = 16 if cw >= 200 else 14
         for i, o in enumerate(opts):
@@ -350,6 +367,9 @@ def parse_layout():
     return tabs, order
 
 
+RED_KNOBS = {"F1Cutoff", "Wave"}   # red caps on the Classic panel, as on the hardware (the Shadow Edition keeps them black)
+EXTRA_KNOBS = {"OSC": [("Wave", 584, 456)]}   # Wavetable is a pick-list in 1.x: a knob beside it turns through the tables
+
 # PLAY: status and stats move into the display, so the Engine section holds the keys: RANDOM / +FAV / -FAV, then PANIC / INIT PATCH
 PLAY_MOVE = {"all_notes_off": (996, 222), "init_patch": (1104, 222)}
 
@@ -379,7 +399,7 @@ def layout_tab(name, fn, spec):
             panels.append(pick_panel(key, PARAMS[key]["options"]))
         elif kind == "knob":
             pos[key] = (cx, cy)
-            kids.append(entry(key, "xknob", {"version": 1, "handleName": "Data"}, "%d %d %d %d" % (cx - KNOB // 2, cy - KNOB // 2, KNOB, KNOB),
+            kids.append(entry(key, knob_type(key), {"version": 1, "handleName": "Data"}, "%d %d %d %d" % (cx - KNOB // 2, cy - KNOB // 2, KNOB, KNOB),
                               remap=P(key), focus="Yes"))
             kids.append(label("%d %d 120 26" % (cx - 60, cy + 44), key, 21))
         elif kind == "toggle":
@@ -397,6 +417,9 @@ def layout_tab(name, fn, spec):
         elif kind == "stepper":
             w, h = int(a["w"]), int(a["h"])
             stepper(d, kids, cx, cy, w, h, a["get"], a["prev"], a["next"])
+    for key, cx, cy in EXTRA_KNOBS.get(name, []):
+        kids.append(entry(key + " knob", knob_type(key), {"version": 1, "handleName": "Data"},
+                          "%d %d %d %d" % (cx - KNOB // 2, cy - KNOB // 2, KNOB, KNOB), remap=P(key), focus="Yes"))
     if name == "PLAY":
         play_display(art, d, kids)
     pages = []
@@ -421,6 +444,10 @@ def play_display(art, d, kids):
     key_button(kids, "fav_add", 780, 222, "+ FAV")
     key_button(kids, "fav_del", 888, 222, "- FAV")
     key_button(kids, "skin", 1212, 222, "SHADOW")   # a latching key: its LED lit = the Shadow Edition skin (for every Xenia)
+
+
+def knob_type(key):
+    return "xknob_red" if THEME == "classic" and key in RED_KNOBS else "xknob"
 
 
 def stepper(d, kids, cx, cy, w, h, get, prev, nxt):
@@ -729,8 +756,8 @@ def preview(pages, arts, defs, open_list=None, suffix=""):
             ind = [h for h in e["bounds"].get("additionalInvalidatingHandles", []) if h.endswith("Parameter %d" % UI_INDEX)]
             if ind and ind[0].split("/")[1] != str(open_list):
                 continue
-            if cd["type"] == "xknob":
-                st = Image.open(os.path.join(OUT, "knob_xt.png"))
+            if cd["type"] in ("xknob", "xknob_red"):
+                st = Image.open(os.path.join(OUT, "knob_xt_red.png" if cd["type"] == "xknob_red" else "knob_xt.png"))
                 im.alpha_composite(st.crop((0, KNOB * 60, KNOB, KNOB * 61)).convert("RGBA"), (x, y))
             elif cd["type"] == "Label":
                 key = LOCK[int(e["handle remapping"]["map"][0]["value"].split()[1])]
