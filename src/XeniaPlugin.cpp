@@ -475,6 +475,7 @@ private:
                 char k2[64];
                 std::snprintf(k2, sizeof k2, "%s_on", s.key);
                 const float on = engineGet(k2, buf, sizeof buf) && std::atoi(buf) ? 1.0f : 0.0f;
+                if (on < 0.5f) held_[i].store(false);   // dark: the host sends no 0 for a tile the engine turned off, so its next tap must fire
                 if (moved || on != told_[i]) { pushValue(i, on); if (!moved) ++changed; }
                 continue;
             }

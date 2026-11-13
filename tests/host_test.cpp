@@ -241,6 +241,17 @@ int main(int argc, char** argv)
     a->setParameter(a, SLOT5, 0.0f);   // the host toggles a lit tile off: it stays lit
     settle(a);
     CHECK(a->getParameter(a, SLOT5) == 1.f && !disp(a, SLOT5).empty(), "a lit tile stays lit, shows \"%s\"", disp(a, SLOT5).c_str());
+    {   // tile 6, then tile 5 again: the engine turned tile 5 off and the host sent no 0 for it, so its next tap must still fire
+        const int SLOT6 = idx("patch_slot_6");
+        a->setParameter(a, SLOT5, 1.0f);   // tile 5 tapped and lit, as the host leaves it (it never sends 0 for it)
+        settle(a, 300);
+        a->setParameter(a, SLOT6, 1.0f);
+        settle(a, 300);
+        CHECK(engi(a, "preset") == 5 && a->getParameter(a, SLOT5) == 0.f, "tile 6 picks preset 6, tile 5 goes dark (%d)", engi(a, "preset"));
+        a->setParameter(a, SLOT5, 1.0f);
+        settle(a, 300);
+        CHECK(engi(a, "preset") == 4 && a->getParameter(a, SLOT5) == 1.f, "tile 5 again picks preset 5 (%d)", engi(a, "preset"));
+    }
 
     std::printf("== random sound, favourites\n");
     {
