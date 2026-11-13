@@ -164,9 +164,9 @@ def key_image(w, h, caption, lit, size=17):
     """A blue Xenia key (PANIC, INIT PATCH, +FAV ...): lit = the brighter blue."""
     im = Image.new("RGBA", (w, h), (0, 0, 0, 0))
     d = ImageDraw.Draw(im)
-    d.rounded_rectangle((0, 2, w - 1, h - 1), 4, fill=(10, 60, 92))
-    d.rounded_rectangle((0, 0, w - 1, h - 3), 4, fill=BLUE_HI if lit else BLUE)
-    d.line((4, 1, w - 5, 1), fill=(120, 190, 235) if lit else (70, 150, 205))
+    d.rounded_rectangle((0, 2, w - 1, h - 1), 4, fill=(18, 18, 18))
+    d.rounded_rectangle((0, 0, w - 1, h - 3), 4, fill=(110, 110, 110) if lit else (78, 78, 78))
+    d.line((4, 1, w - 5, 1), fill=(130, 130, 130) if lit else (104, 104, 104))
     d.text((w // 2, h // 2 - 1), caption, font=F(size), fill=WHITE, anchor="mm")
     return im
 
@@ -241,10 +241,38 @@ def button(kids, key, b, on, off, bid=1, n=1, name=None):
                                               "handleName": "Data", "gestureBehaviour": GESTURE}, b, remap=P(key)))
 
 
-def key_button(kids, key, cx, cy, caption, w=None, h=46):
-    w = w or max(120, int(F(17).getlength(caption)) + 56)
-    on = save(key_image(w, h, caption, True), "key_%s_%dx%d_on.png" % (key, w, h))
-    off = save(key_image(w, h, caption, False), "key_%s_%dx%d_off.png" % (key, w, h))
+def round_key_image(w, h, caption, lit, r, size):
+    """An XT panel key: a round cap in the knob colour, a small red LED up to its right (lit while held), the caption printed under it."""
+    S = 4
+    im = Image.new("RGBA", (w * S, h * S), (0, 0, 0, 0))
+    d = ImageDraw.Draw(im)
+    cx, cy = w * S // 2, (r + 3) * S
+    d.ellipse((cx - r * S + 2 * S, cy - r * S + 4 * S, cx + r * S + 2 * S, cy + r * S + 4 * S), fill=(60, 20, 0, 110))   # shadow
+    d.ellipse((cx - r * S, cy - r * S, cx + r * S, cy + r * S), fill=(22, 22, 22, 255))                                  # skirt
+    for i in range(r * S - 3 * S, 0, -S):        # the cap: lit from the upper left like the knobs
+        t = i / (r * S)
+        g = int(58 + (1 - t) * 44) - (8 if lit else 0)
+        o = int((1 - t) * 0.35 * r * S)
+        d.ellipse((cx - i - o, cy - i - o, cx + i - o, cy + i - o), fill=(g, g, g, 255))
+    lx, ly, lr = cx + int(r * 0.95 * S), cy - int(r * 0.95 * S), 5 * S
+    if lit:
+        glow = Image.new("RGBA", im.size, (0, 0, 0, 0))
+        ImageDraw.Draw(glow).ellipse((lx - 3 * lr, ly - 3 * lr, lx + 3 * lr, ly + 3 * lr), fill=(255, 60, 30, 150))
+        im.alpha_composite(glow.filter(ImageFilter.GaussianBlur(4 * S)))
+        d = ImageDraw.Draw(im)
+    d.ellipse((lx - lr - S, ly - lr - S, lx + lr + S, ly + lr + S), fill=(40, 14, 8, 255))
+    d.ellipse((lx - lr, ly - lr, lx + lr, ly + lr), fill=(255, 64, 40, 255) if lit else (120, 30, 22, 255))
+    d.ellipse((lx - lr // 2 - S, ly - lr // 2 - S, lx, ly), fill=(255, 190, 170, 255) if lit else (160, 70, 60, 255))
+    im = im.resize((w, h), Image.LANCZOS)
+    ImageDraw.Draw(im).text((w // 2, h - size // 2 - 2), caption, font=F(size), fill=INK + (255,), anchor="mm")
+    return im
+
+
+def key_button(kids, key, cx, cy, caption, w=128, h=84, r=22, size=16):
+    """A momentary XT panel key centred on (cx, cy): cap, LED and caption in one image (on = held)."""
+    tag = "rkey_%s_%dx%d" % (key, w, h)
+    on = save(round_key_image(w, h, caption, True, r, size), tag + "_on.png")
+    off = save(round_key_image(w, h, caption, False, r, size), tag + "_off.png")
     button(kids, key, "%d %d %d %d" % (cx - w // 2, cy - h // 2, w, h), on, off)
 
 
@@ -314,12 +342,17 @@ def parse_layout():
 
 
 # PLAY: status and stats move into the display, so the Engine section holds the keys: RANDOM / +FAV / -FAV, then PANIC / INIT PATCH
-PLAY_MOVE = {"all_notes_off": (850, 254), "init_patch": (1030, 254)}
+PLAY_MOVE = {"all_notes_off": (1070, 222), "init_patch": (1200, 222)}
 
 
 def layout_tab(name, fn, spec):
     """One printed page at the layout.conf positions; one Page per sub-tab (same art, other Q-Link blocks)."""
-    art = panel(Image.open(os.path.join(VST_IMG, os.path.basename(spec["art"]))).convert("RGB"))
+    art = Image.open(os.path.join(VST_IMG, os.path.basename(spec["art"]))).convert("RGB")
+    if name == "PLAY":                # before the rings go on: clear the 1.x "Status" / "Stats" captions and the red bezel to plain panel
+        for x0, y0, x1, y1 in ((740, 158, 840, 182), (1050, 158, 1140, 182)):
+            art.paste(art.crop((x0 - 110, y0, x1 - 110, y1)), (x0, y0))
+        art.paste(art.crop((250, 116, 1280, 126)).resize((1030, 116)), (250, 0))
+    art = panel(art)
     d = ImageDraw.Draw(art)
     pos, kids, panels = {}, [], []
     for kind, a in spec["items"]:
@@ -369,18 +402,15 @@ def layout_tab(name, fn, spec):
 
 def play_display(art, d, kids):
     """PLAY's header: one two-row display in the red bezel (bank | sound with step arrows; engine status | stats), and the patch keys."""
-    for x0, y0, x1, y1 in ((740, 158, 840, 182), (1050, 158, 1140, 182)):   # the 1.x "Status" / "Stats" captions: fill from the left
-        art.paste(art.crop((x0 - 110, y0, x1 - 110, y1)), (x0, y0))
-    art.paste(art.crop((250, 116, 1280, 126)).resize((1030, 116)), (250, 0))     # clear the 1.x red bezel to plain panel
     lens(art, (262, 0, 1278, 124), (420, 30, 1150, 94))
     display(d, 420, 30, 1150, 94)
     display_row(d, kids, 420, 1150, 30, 64, [(704, "bank_name", "bank_prev", "bank_next"),
                                             (1150, "preset_name", "preset_prev", "preset_next")], 26)
     d.line((426, 65, 1144, 65), fill=(120, 140, 40), width=1)
     display_row(d, kids, 420, 1150, 66, 94, [(770, "loading_status", None, None), (1150, "engine_stats", None, None)], 18)
-    key_button(kids, "random_patch", 760, 190, "RANDOM", w=150)
-    key_button(kids, "fav_add", 940, 190, "+ FAV", w=150)
-    key_button(kids, "fav_del", 1120, 190, "- FAV", w=150)
+    key_button(kids, "random_patch", 680, 222, "RANDOM")
+    key_button(kids, "fav_add", 810, 222, "+ FAV")
+    key_button(kids, "fav_del", 940, 222, "- FAV")
 
 
 def stepper(d, kids, cx, cy, w, h, get, prev, nxt):
@@ -550,9 +580,9 @@ def banks_page(fn):
     display(d, 58, 15, 790, 55)
     display_row(d, p.kids, 58, 790, 15, 55, [(340, "bank_name", "bank_prev", "bank_next"),
                                              (790, "preset_name", "preset_prev", "preset_next")], 25)
-    key_button(p.kids, "random_patch", 914, 34, "RANDOM", w=150, h=42)
-    key_button(p.kids, "fav_add", 1062, 34, "+ FAV", w=124, h=42)
-    key_button(p.kids, "fav_del", 1196, 34, "- FAV", w=124, h=42)
+    key_button(p.kids, "random_patch", 924, 36, "RANDOM", w=128, h=72, r=19, size=15)
+    key_button(p.kids, "fav_add", 1056, 36, "+ FAV", w=128, h=72, r=19, size=15)
+    key_button(p.kids, "fav_del", 1188, 36, "- FAV", w=128, h=72, r=19, size=15)
     lit = Image.new("RGBA", (300, 60), (0, 0, 0, 0))
     ImageDraw.Draw(lit).rounded_rectangle((0, 0, 299, 59), 4, outline=BLUE, width=4, fill=(22, 118, 178, 60))
 
