@@ -37,6 +37,12 @@ def P(key):
 
 # ---- colours: the 1.x skin's (vst/layout.conf theme_*, tools/make_skin.py) ------------------------------------------------
 INK = (38, 22, 6)
+THEME = "classic"             # the pass being built: "classic" (the orange 1.x panel) or "shadow" (the Shadow Edition: black panel, teal print)
+TEAL = (46, 176, 184)         # the Shadow Edition's print
+
+
+def T(classic, shadow):
+    return shadow if THEME == "shadow" else classic
 BLUE = (22, 118, 178)
 BLUE_HI = (59, 155, 216)
 LCD = (182, 206, 72)          # every LCD-style field in the classic yellow-green backlit LCD, dark characters
@@ -107,7 +113,8 @@ def text_style(h, colour, just="horizontallyCentred verticallyCentred", style="S
             "justification": just, "case": "Original"}
 
 
-def label(b, key, h=20, colour="ff26160a", just="horizontallyCentred verticallyCentred", style="SemiBold"):
+def label(b, key, h=20, colour=None, just="horizontallyCentred verticallyCentred", style="SemiBold"):
+    colour = colour or T("ff26160a", "ffdcdcd6")   # value print on the panel: dark on orange, light grey on black
     return entry("label", "Label", {"version": 1, "textStyle": text_style(h, colour, just, style), "type": "Value", "handleName": "Data"}, b, P(key))
 
 
@@ -141,6 +148,8 @@ def F(size, path=None):
 
 
 def save(im, name):
+    if THEME == "shadow":
+        name = "dk_" + name    # the Shadow pass's own copy of every image it makes
     im.save(os.path.join(OUT, name))
     return name
 
@@ -176,7 +185,7 @@ def toggle_image(lit):
     w, h = 56, 30
     im = Image.new("RGBA", (w, h), (0, 0, 0, 0))
     d = ImageDraw.Draw(im)
-    d.rounded_rectangle((0, 0, w - 1, h - 1), h // 2, fill=DARK, outline=(12, 14, 8), width=2)
+    d.rounded_rectangle((0, 0, w - 1, h - 1), h // 2, fill=DARK, outline=T((12, 14, 8), (110, 112, 112)), width=2)
     cx = w - h // 2 if lit else h // 2
     d.ellipse((cx - 10, h // 2 - 10, cx + 10, h // 2 + 10), fill=BLUE_HI if lit else (108, 100, 112))
     return im
@@ -264,11 +273,11 @@ def round_key_image(w, h, caption, lit, r, size):
     d.ellipse((lx - lr, ly - lr, lx + lr, ly + lr), fill=(255, 64, 40, 255) if lit else (120, 30, 22, 255))
     d.ellipse((lx - lr // 2 - S, ly - lr // 2 - S, lx, ly), fill=(255, 190, 170, 255) if lit else (160, 70, 60, 255))
     im = im.resize((w, h), Image.LANCZOS)
-    ImageDraw.Draw(im).text((w // 2, h - size // 2 - 2), caption, font=F(size), fill=INK + (255,), anchor="mm")
+    ImageDraw.Draw(im).text((w // 2, h - size // 2 - 2), caption, font=F(size), fill=T(INK, (220, 220, 214)) + (255,), anchor="mm")
     return im
 
 
-def key_button(kids, key, cx, cy, caption, w=128, h=84, r=22, size=16):
+def key_button(kids, key, cx, cy, caption, w=108, h=84, r=22, size=15):
     """A momentary XT panel key centred on (cx, cy): cap, LED and caption in one image (on = held)."""
     tag = "rkey_%s_%dx%d" % (key, w, h)
     on = save(round_key_image(w, h, caption, True, r, size), tag + "_on.png")
@@ -342,7 +351,7 @@ def parse_layout():
 
 
 # PLAY: status and stats move into the display, so the Engine section holds the keys: RANDOM / +FAV / -FAV, then PANIC / INIT PATCH
-PLAY_MOVE = {"all_notes_off": (1070, 222), "init_patch": (1200, 222)}
+PLAY_MOVE = {"all_notes_off": (996, 222), "init_patch": (1104, 222)}
 
 
 def layout_tab(name, fn, spec):
@@ -352,7 +361,7 @@ def layout_tab(name, fn, spec):
         for x0, y0, x1, y1 in ((740, 158, 840, 182), (1050, 158, 1140, 182)):
             art.paste(art.crop((x0 - 110, y0, x1 - 110, y1)), (x0, y0))
         art.paste(art.crop((250, 116, 1280, 126)).resize((1030, 116)), (250, 0))
-    art = panel(art)
+    art = panel(art, logo=name == "PLAY")
     d = ImageDraw.Draw(art)
     pos, kids, panels = {}, [], []
     for kind, a in spec["items"]:
@@ -408,9 +417,10 @@ def play_display(art, d, kids):
                                             (1150, "preset_name", "preset_prev", "preset_next")], 26)
     d.line((426, 65, 1144, 65), fill=(120, 140, 40), width=1)
     display_row(d, kids, 420, 1150, 66, 94, [(770, "loading_status", None, None), (1150, "engine_stats", None, None)], 18)
-    key_button(kids, "random_patch", 680, 222, "RANDOM")
-    key_button(kids, "fav_add", 810, 222, "+ FAV")
-    key_button(kids, "fav_del", 940, 222, "- FAV")
+    key_button(kids, "random_patch", 672, 222, "RANDOM")
+    key_button(kids, "fav_add", 780, 222, "+ FAV")
+    key_button(kids, "fav_del", 888, 222, "- FAV")
+    key_button(kids, "skin", 1212, 222, "SHADOW")   # a latching key: its LED lit = the Shadow Edition skin (for every Xenia)
 
 
 def stepper(d, kids, cx, cy, w, h, get, prev, nxt):
@@ -427,7 +437,7 @@ def stepper(d, kids, cx, cy, w, h, get, prev, nxt):
 ARC_CENTRE = (700, 40)       # where the XT's big red encoder sits (top middle); every page shares it, so the rings line up across tabs
 
 
-def panel(art):
+def panel(art, logo=False):
     """Print the XT's ring pattern on a 1.x page: only on the plain orange (captions, headings and rules stay clean)."""
     w, h = art.size
     rings = Image.new("L", (w, h), 0)
@@ -453,11 +463,47 @@ def panel(art):
             if R > 215 and B < 60 and 95 < G < 175:
                 op[x, y] = 255
     orange = orange.filter(ImageFilter.MinFilter(5))             # keep a little air around captions and rules
-    red = Image.new("RGB", (w, h), (226, 52, 44))
-    cream = Image.new("RGB", (w, h), (255, 214, 120))
+    if THEME == "shadow":
+        art = art.filter(shadow_lut(False))
+    red = Image.new("RGB", (w, h), T((226, 52, 44), (76, 78, 80)))
+    cream = Image.new("RGB", (w, h), T((255, 214, 120), (88, 92, 94)))
     art = Image.composite(red, art, ImageChops.multiply(rings, orange))
     art = Image.composite(cream, art, ImageChops.multiply(sweeps, orange))
     return art
+
+
+_LUTS = {}
+
+
+def shadow_lut(logo):
+    """The Shadow Edition recolour as a 3D colour table: each colour of the 1.x art is split into its parts (orange panel, dark print,
+    blue print, white) and rebuilt from the Shadow parts (charcoal panel, light grey print, teal, white). logo: the dark parts stay dark
+    (the Xenia logo's outline)."""
+    if logo in _LUTS:
+        return _LUTS[logo]
+    src = [(255, 142, 10), (38, 22, 6), (22, 118, 178), (255, 255, 255)]
+    dst = [(50, 51, 53), (22, 22, 24) if logo else (218, 218, 212), TEAL, (255, 255, 255)]
+    m = [[src[j][i] / 255.0 for j in range(4)] for i in range(3)] + [[1.0] * 4]
+    inv = [[float(i == j) for j in range(4)] for i in range(4)]
+    a = [row[:] for row in m]
+    for c in range(4):                                  # Gauss-Jordan: inv = m^-1
+        piv = max(range(c, 4), key=lambda r: abs(a[r][c]))
+        a[c], a[piv], inv[c], inv[piv] = a[piv], a[c], inv[piv], inv[c]
+        k = a[c][c]
+        a[c] = [v / k for v in a[c]]; inv[c] = [v / k for v in inv[c]]
+        for r in range(4):
+            if r != c:
+                f = a[r][c]
+                a[r] = [x - f * y for x, y in zip(a[r], a[c])]; inv[r] = [x - f * y for x, y in zip(inv[r], inv[c])]
+
+    def f(r, g, b):
+        wts = [max(0.0, sum(inv[i][j] * v for j, v in enumerate((r, g, b, 1.0)))) for i in range(4)]
+        for i, cut in ((1, 0.12), (2, 0.14), (3, 0.14)):   # the orange's grain and gradient: a flat charcoal, no stray grey / teal / white
+            wts[i] = max(0.0, (wts[i] - cut) / (1 - cut))
+        t = sum(wts) or 1.0
+        return tuple(sum(wts[i] * dst[i][ch] for i in range(4)) / t / 255.0 for ch in range(3))
+    _LUTS[logo] = ImageFilter.Color3DLUT.generate(33, f)
+    return _LUTS[logo]
 
 
 def lens(art, rect, window, pill=False):
@@ -475,8 +521,8 @@ def lens(art, rect, window, pill=False):
             d.rounded_rectangle(box, (h // 2 - i) * S, fill=col)
         else:
             d.ellipse(box, fill=col)
-    shape(0, (96, 100, 176, 255))                 # a thin rim, then the flat glass: printed flush with the panel
-    shape(2, (160, 166, 240, 255))
+    shape(0, T((96, 100, 176), (60, 104, 122)) + (255,))   # a thin rim, then the flat glass: printed flush with the panel
+    shape(2, T((160, 166, 240), (142, 198, 214)) + (255,))  # (Shadow Edition: the cyan glass)
     wx0, wy0, wx1, wy1 = [(v - o) * S for v, o in zip(window, (x0, y0, x0, y0))]
     m = 7 * S
     d = ImageDraw.Draw(im)
@@ -571,9 +617,9 @@ def banks_page(fn):
     def heading(x0, x1, y, title):
         tw = int(hf.getlength(title))
         cx = (x0 + x1) // 2
-        d.line((x0, y, cx - tw // 2 - 12, y), fill=BLUE, width=2)
-        d.line((cx + tw // 2 + 12, y, x1, y), fill=BLUE, width=2)
-        d.text((cx, y), title, font=hf, fill=BLUE, anchor="mm")
+        d.line((x0, y, cx - tw // 2 - 12, y), fill=T(BLUE, TEAL), width=2)
+        d.line((cx + tw // 2 + 12, y, x1, y), fill=T(BLUE, TEAL), width=2)
+        d.text((cx, y), title, font=hf, fill=T(BLUE, TEAL), anchor="mm")
 
     # header: the red bezel of PLAY's LCD: one display (bank | sound, with step arrows), RANDOM and the favourite keys
     lens(art, (2, 0, 840, 70), (58, 15, 790, 55), pill=True)
@@ -611,7 +657,7 @@ def banks_page(fn):
         p.kids.append(label("%d %d %d %d" % (x0 + aw, y0, w - 2 * aw, h), get, 22, "ff1f2414"))
         for k, bx, dr in ((prev, x0, -1), (nxt, x0 + w - aw, 1)):
             c, yy, sz = bx + aw // 2, y0 + h // 2, 10
-            d.polygon([(c + dr * sz * 0.7, yy), (c - dr * sz * 0.7, yy - sz), (c - dr * sz * 0.7, yy + sz)], fill=TILE_SEL)
+            d.polygon([(c + dr * sz * 0.7, yy), (c - dr * sz * 0.7, yy - sz), (c - dr * sz * 0.7, yy + sz)], fill=T(TILE_SEL, (210, 210, 204)))
             hit_zone(p.kids, k, bx, y0, aw, h)
 
     # banks: ROM A, ROM B, then the user banks (xenia/banks/), ten per page
@@ -619,12 +665,12 @@ def banks_page(fn):
     for i in range(10):
         tile("bank_slot_%d" % (i + 1), 20, 112 + 45 * i, 280, 41)
     page_stepper(160, 584, 280, 40, "bank_page_text", "bank_page_prev", "bank_page_next")
-    d.line((312, 84, 312, 616), fill=BLUE, width=2)
+    d.line((312, 84, 312, 616), fill=T(BLUE, TEAL), width=2)
     # sounds of the current bank, 30 per page (down the columns), the page stepper on the heading line
     hf2 = hf
-    d.line((326, 92, 470, 92), fill=BLUE, width=2)
-    d.text((540, 92), "Sounds", font=hf2, fill=BLUE, anchor="mm")
-    d.line((610, 92, 950, 92), fill=BLUE, width=2)
+    d.line((326, 92, 470, 92), fill=T(BLUE, TEAL), width=2)
+    d.text((540, 92), "Sounds", font=hf2, fill=T(BLUE, TEAL), anchor="mm")
+    d.line((610, 92, 950, 92), fill=T(BLUE, TEAL), width=2)
     page_stepper(1112, 92, 300, 38, "patch_page_text", "patch_page_prev", "patch_page_next")
     for c in range(3):
         for r in range(10):
@@ -670,7 +716,7 @@ def sample_text(key):
     return str(p.get("default", ""))
 
 
-def preview(pages, arts, defs, open_list=None):
+def preview(pages, arts, defs, open_list=None, suffix=""):
     os.makedirs(PREVIEW, exist_ok=True)
     for p in pages:
         if p.sub:
@@ -680,7 +726,7 @@ def preview(pages, arts, defs, open_list=None):
         for e in p.kids:
             cd = e["componentData"]
             x, y, w, h = [int(float(v)) for v in e["bounds"]["bounds"].split()]
-            ind = e["bounds"].get("additionalInvalidatingHandles")
+            ind = [h for h in e["bounds"].get("additionalInvalidatingHandles", []) if h.endswith("Parameter %d" % UI_INDEX)]
             if ind and ind[0].split("/")[1] != str(open_list):
                 continue
             if cd["type"] == "xknob":
@@ -714,7 +760,7 @@ def preview(pages, arts, defs, open_list=None):
             gx, gy, gw, gh = [int(v) for v in g.split()]
             d.rectangle((gx, gy, gx + gw, gy + gh), outline=(255, 255, 255, 160), width=2)
         name = p.name.replace(" ", "_").replace("&", "and").lower()
-        im.convert("RGB").save(os.path.join(PREVIEW, "%s%s.png" % (name, "_list%d" % open_list if open_list else "")))
+        im.convert("RGB").save(os.path.join(PREVIEW, "%s%s%s.png" % (name, suffix, "_list%d" % open_list if open_list else "")))
 
 
 def main():
@@ -724,16 +770,31 @@ def main():
     save(Image.new("RGBA", (8, 8), (0, 0, 0, 0)), CLEAR)
     knob_strip()
     spec, _ = parse_layout()
-    pages, arts = [], {}
-    for fn, name in enumerate(TAB_ORDER):
-        if name == "BANKS":
-            p, art = banks_page(fn)
-            ps = [p]
-        else:
-            ps, art = layout_tab(name, fn, spec[name])
-        arts[name] = save(art, "bg_%s.png" % re.sub(r"[^a-z0-9]+", "_", name.lower()).strip("_"))
-        pages += ps
-    tabs = [p.tab(arts[p.name]) for p in pages]
+    global THEME
+    passes = {}
+    for THEME in ("classic", "shadow"):   # every page twice: the skin parameter shows one set (one TUI.json, no skin files to swap)
+        pages, arts = [], {}
+        for fn, name in enumerate(TAB_ORDER):
+            if name == "BANKS":
+                p, art = banks_page(fn)
+                ps = [p]
+            else:
+                ps, art = layout_tab(name, fn, spec[name])
+            arts[name] = save(art, "bg_%s.png" % re.sub(r"[^a-z0-9]+", "_", name.lower()).strip("_"))
+            pages += ps
+        passes[THEME] = (pages, arts, [p.tab(arts[p.name]) for p in pages])
+    THEME = "classic"
+    pages, arts, tabs = passes["classic"]
+    skin = LOCK.index("skin")
+    for t, sh in zip(tabs, passes["shadow"][2]):
+        merged = []
+        for which, tab in ((0, t), (1, sh)):
+            for e in tab["componentDefinition"]["componentsData"]:
+                b = e["bounds"]
+                b["version"] = 2
+                b.setdefault("additionalInvalidatingHandles", []).append("IndexedEnabling/%d/2/Parameter %d" % (which, skin))
+                merged.append(e)
+        t["componentDefinition"]["componentsData"] = merged
     repl = [{"key": P(k), "value": PARAMS[k]["options"]} for k in POPUPS]
     defs = definitions() + [{"key": k, "value": v[2]} for k, v in PICK_DEFS.items()]
     tui = {"pageData": {"version": 1, "componentDefinitions": {"version": 2, "importFiles": [], "localComponentDefinitions": defs},
@@ -746,6 +807,7 @@ def main():
     if "--preview" in sys.argv:
         dd = {x["key"]: x["value"] for x in defs}
         preview(pages, arts, dd)
+        preview(passes["shadow"][0], passes["shadow"][1], dd, suffix="_shadow")
         preview([p for p in pages if p.name == "OSC"], arts, dd, open_list=POPUPS.index("Wave") + 1)
         preview([p for p in pages if p.name == "SLOTS 1-8"], arts, dd, open_list=POPUPS.index("Slot1Destination") + 1)
         preview([p for p in pages if p.name == "PLAY"], arts, dd, open_list=POPUPS.index("EffectType") + 1)
