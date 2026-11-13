@@ -54,7 +54,7 @@ extern "C" {
 #endif
 #define XENIA_FOURCC(...) MPC_FOURCC(__VA_ARGS__)   // expands XENIA_UID before MPC_FOURCC counts its arguments
 #ifndef XENIA_VERSION
-#define XENIA_VERSION 1000
+#define XENIA_VERSION 1001
 #endif
 
 namespace {
