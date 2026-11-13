@@ -11,5 +11,19 @@
     "firmware": "MPC OS 3.10.1",
     "date": "2026-11-13",
     "note": "Tested as the identical beta build (Xenia 2 Beta, own uid) from VST2 Plugins: loads, plays, every page, pick-lists, keys, user SysEx banks (20 sets), RANDOM, favourites, and the Classic / Shadow Edition switch checked on the device. Not tried on the device: a 0.1.2 project, save/reload, the install.sh upgrade."
+  },
+  {
+    "version": "1.0.1",
+    "device": "MPC Live III (Gen2)",
+    "firmware": "MPC OS 3.10.1",
+    "date": "2026-11-13",
+    "note": "Tested as the beta build of the same code (Xenia 2 Beta): BANKS sound tiles 5, 6, 5 and bank tiles B, A, B all fire, one tile lit. The release zips were not installed."
+  },
+  {
+    "version": "1.0.2",
+    "device": "MPC Live III (Gen2)",
+    "firmware": "MPC OS 3.10.1",
+    "date": "2026-11-13",
+    "note": "Tested as the beta build of the same code (Xenia 2 Beta): the data wheel on the bank and sound names steps one a click (bank +3/-2, sound +10/-3 exact); Q-Links on PLAY and BANKS checked by the owner. The release zips were not installed."
   }
 ]
