@@ -671,7 +671,7 @@ def banks_page(fn):
         d.line((x, y, x + w - 1, y), fill=TILE_LINE)
         d.line((x, y + h - 1, x + w - 1, y + h - 1), fill=TILE_LINE)
 
-    style = os.environ.get("XENIA_TILES", "classic")
+    style = os.environ.get("XENIA_TILES", "smoke")   # smoke (default) | clear | classic (the 0.1.2 olive tiles)
     smoke = style in ("smoke", "clear")
     # smoke: a faint see-through pane with a fine edge, light print; clear: only the fine edge. Selected = a lit LED and a light frame
     a_fill = 0 if style == "clear" else 1
