@@ -456,10 +456,12 @@ static const PSpec g_pspecs[] = {
     {"bank_page_prev", "Bank Page -", 0.0f, 1.0f, 0.0f, 513, nullptr, 0, -1, 0.0f},
     {"bank_page_next", "Bank Page +", 0.0f, 1.0f, 0.0f, 513, nullptr, 0, -1, 0.0f},
     {"bank_page_text", "Bank Page", 0.0f, 1023.0f, 0.0f, 514, nullptr, 0, -1, 0.0f},
+    {"skin", "Skin", 0.0f, 1.0f, 0.0f, 4608, nullptr, 0, -1, 0.0f},
 };
-static const int kNumParams = 346;
+static const int kNumParams = 347;
 static const int kNumEngineParams = 253;   // 0 .. this - 1 are the engine's keys
 static const int kUiParam = 253;            // ui_open: 0 closed, k + 1 = pick-list of g_popups[k]
 static const int kNumPopups = 79;
 static const int kFavAdd = 332, kFavDel = 333, kRandom = 334, kFavSlots = 64;
+static const int kSkin = 346;               // the skin switch (kLocal, global)
 static const int kFirstAppended = 332;     // engine keys appended after the released table follow the favourite keys

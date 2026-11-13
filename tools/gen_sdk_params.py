@@ -20,6 +20,8 @@ APPENDED = [                     # (key, name, min, max, default, flags) appende
     ("bank_page_prev", "Bank Page -", 0, 1, 0, 1 | 512),
     ("bank_page_next", "Bank Page +", 0, 1, 0, 1 | 512),
     ("bank_page_text", "Bank Page", 0, 1023, 0, 2 | 512),
+    # skin switch (2026-11-13): 0 Classic, 1 Shadow Edition. kLocal: one setting for the whole MPC (<plugin folder>/xenia-skin.txt)
+    ("skin", "Skin", 0, 1, 0, 4096 | 512),
 ]
 # Ranges widened for the user banks (the order is unchanged; 1.x: BANK 0..1 = ROM A/B, PRESET 0..99). A bank now holds up to 256 sounds.
 RANGE = {"bank_index": (0, 63), "preset": (0, 255)}
@@ -101,6 +103,7 @@ out += ["", "static const PSpec g_pspecs[] = {"] + rows + ["};",
         "static const int kUiParam = %d;            // ui_open: 0 closed, k + 1 = pick-list of g_popups[k]" % len(P),
         "static const int kNumPopups = %d;" % len(popups),
         "static const int kFavAdd = %d, kFavDel = %d, kRandom = %d, kFavSlots = 64;" % (len(keys) + 79, len(keys) + 80, len(keys) + 81),
+        "static const int kSkin = %d;               // the skin switch (kLocal, global)" % LOCK.index("skin"),
         "static const int kFirstAppended = %d;     // engine keys appended after the released table follow the favourite keys" % (len(keys) + 79), ""]
 open(os.path.join(ROOT, "src", "params_gen.h"), "w").write("\n".join(out))
 print("src/params_gen.h: %d params (%d engine, ui_open, %d reserved, %d appended)" % (len(LOCK), len(P), len(popups) - 1, len(APPENDED)))

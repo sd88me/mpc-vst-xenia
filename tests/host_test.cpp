@@ -106,6 +106,10 @@ int main(int argc, char** argv)
     const int BANK = idx("bank_index"), PRESET = idx("preset"), NEXT = idx("preset_next"), PNAME = idx("preset_name"), CUT = idx("F1Cutoff"),
               FX = idx("EffectType"), PLAY1 = idx("play1"), PLAYV1 = idx("play_v1"), SLOT5 = idx("patch_slot_5"), GAIN = idx("gain");
 
+    const char* pfolder = std::getenv("MPC_PLUGIN_FOLDER");
+    const std::string skinFile = std::string(pfolder ? pfolder : ".") + "/xenia-skin.txt";
+    std::remove(skinFile.c_str());
+    auto readFile = [](const std::string& path) { std::string t; if (FILE* f = std::fopen(path.c_str(), "r")) { int c; while ((c = std::fgetc(f)) != EOF) t += (char)c; std::fclose(f); } return t; };
     std::printf("== ROM sound names (scanned once per ROM, then cached)\n");
     {
         const char* pf = std::getenv("MPC_PLUGIN_FOLDER");
@@ -129,7 +133,7 @@ int main(int argc, char** argv)
     a->dispatcher(a, effGetEffectName, 0, 0, name, 0);
     CHECK(a->uniqueID == (VstInt32)0x58656e41, "uid XenA (%08x)", (unsigned)a->uniqueID);
     CHECK(!std::strcmp(name, XENIA_EXPECT_NAME), "name \"%s\"", name);
-    CHECK(a->numParams == 346, "346 params: 332 frozen + 14 appended (%d)", a->numParams);
+    CHECK(a->numParams == 347, "347 params: 332 frozen + 15 appended (%d)", a->numParams);
     CHECK(a->dispatcher(a, effGetVendorVersion, 0, 0, nullptr, 0) == 2000, "version 2000");
     {
         int bad = 0, i = 0;
@@ -144,7 +148,7 @@ int main(int argc, char** argv)
             i++;
         }
         if (f) std::fclose(f);
-        CHECK(f && bad == 0 && i == 346, "order = params.lock (%d keys, %d differ)", i, bad);
+        CHECK(f && bad == 0 && i == 347, "order = params.lock (%d keys, %d differ)", i, bad);
         CHECK(!std::strcmp(g_pspecs[0].key, "bank_index") && !std::strcmp(g_pspecs[253].key, "ui_open"), "0 = bank_index, 253 = ui_open");
     }
     CHECK(waitReady(a), "booted (%s)", eng(a, "loading_status").c_str());
@@ -367,7 +371,15 @@ int main(int argc, char** argv)
     a->setParameter(a, GAIN, norm(GAIN, 300));
     settle(a, 60);
     const std::string nameA = eng(a, "preset_name");
-    const std::vector<uint8_t> ca = chunk(a);
+    const int SKIN = idx("skin");
+    CHECK(std::lround(plainOf(a, SKIN)) == 0 && disp(a, SKIN) == "Classic", "skin: Classic without a setting file (\"%s\")", disp(a, SKIN).c_str());
+    a->setParameter(a, SKIN, 1.0f);
+    settle(a, 10);
+    CHECK(readFile(skinFile) == "shadow\n" && disp(a, SKIN) == "Shadow Edition", "skin: Shadow Edition is written to xenia-skin.txt");
+    const std::vector<uint8_t> ca = chunk(a);   // saved with the skin on Shadow: a project must not carry it
+    a->setParameter(a, SKIN, 0.0f);
+    settle(a, 10);
+    CHECK(readFile(skinFile) == "classic\n", "skin: back to Classic in the file");
     CHECK(ca.size() > 600 && !std::memcmp(ca.data(), "MPCP", 4), "A saves an SDK chunk (%zu bytes)", ca.size());
     AEffect* b = open("B");
     CHECK(waitReady(b), "B ready");
@@ -377,6 +389,15 @@ int main(int argc, char** argv)
     CHECK(engi(b, "bank_index") == 0 && engi(b, "preset") == 12 && engi(b, "F1Cutoff") == 77 && engi(b, "gain") == 300,
           "B: A/%d, F1 CUTOFF %d (the edit survives), GAIN %d", engi(b, "preset"), engi(b, "F1Cutoff"), engi(b, "gain"));
     CHECK(eng(b, "preset_name") == nameA && std::lround(plainOf(b, CUT)) == 77, "B: \"%s\", host F1 CUTOFF %.0f", eng(b, "preset_name").c_str(), plainOf(b, CUT));
+    settle(b, 10);
+    CHECK(std::lround(plainOf(b, SKIN)) == 0 && readFile(skinFile) == "classic\n", "skin: a project saved on Shadow leaves the global Classic alone");
+    b->setParameter(b, SKIN, 1.0f);
+    settle(b, 10);
+    run(a, 500);                                   // ~1.5 s: A's worker re-reads the file about once a second
+    xenia_dbg_tick(a);
+    CHECK(std::lround(plainOf(a, SKIN)) == 1 && g_automate[SKIN] > 0, "skin: B switches to Shadow, A follows (host told %d times)", g_automate[SKIN].load());
+    b->setParameter(b, SKIN, 0.0f);
+    settle(b, 10);
 
     std::printf("== a 0.1.2 project\n");
     std::vector<uint8_t> legacy;

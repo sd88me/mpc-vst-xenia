@@ -133,6 +133,9 @@ public:
         for (int i = 0; i < kFavSlots; ++i) addProgram("--", {});
         favFile_ = folder + "/xenia-favourites.dat";
         loadFavs();
+        skinFile_ = folder + "/xenia-skin.txt";   // the skin switch: one setting for every instance and project
+        skin_.store(readSkin());
+        store(kSkin, (float)skin_.load());
         worker_ = std::thread(&XeniaPlugin::workerMain, this);
     }
 
@@ -191,6 +194,13 @@ public:
     {
         if (index < 0 || index >= kNumParams || !inst_) return;
         if (t_pushing == index) return;          // the host echoing what the worker just told it
+        if (index == kSkin)                      // global, not part of a project: a project load leaves it alone (the worker re-asserts it)
+        {
+            const int v = plain >= 0.5f ? 1 : 0;
+            std::lock_guard<std::mutex> g(skinMu_);
+            if (!loading_.load() && v != skin_.load()) { skin_.store(v); skinDirty_.store(true); }
+            return;
+        }
         const PSpec& s = g_pspecs[index];
         if (s.flags & (kUi | kReserved)) return;
         if (s.flags & kLocal) { localChanged(index, plain); return; }
@@ -247,6 +257,7 @@ public:
         if (index < 0 || index >= kNumParams) return false;
         const PSpec& s = g_pspecs[index];
         char buf[128];
+        if (index == kSkin) { out = plain >= 0.5f ? "Shadow Edition" : "Classic"; return true; }
         if (s.flags & kText) { out = engineGet(s.key, buf, sizeof buf) ? buf : ""; return true; }   // readouts and tile names
         if (s.flags & (kMomentary | kUi | kReserved)) { out = ""; return true; }
         return false;
@@ -430,6 +441,12 @@ private:
             }
         }
         if (favDirty_.exchange(false)) { saveFavs(); wantDisplay_ = true; }   // new names in the PRESET menu
+        {
+            std::lock_guard<std::mutex> g(skinMu_);
+            if (skinDirty_.exchange(false)) writeSkin(skin_.load());
+            else if (tick_ % 100 == 0) skin_.store(readSkin());                // another instance switched it (about once a second)
+        }
+        if (std::lround(get(kSkin)) != skin_.load()) pushValue(kSkin, (float)skin_.load());
         if (notifyUi_.exchange(false)) { t_pushing = kUiParam; notifyHostParameterChanged(kUiParam); t_pushing = -1; }
         if (resync_.exchange(false))
         {
@@ -501,6 +518,21 @@ private:
             lastDisplay_ = now;
             requestDisplayUpdate();
         }
+    }
+
+    // ---- skin switch (kLocal, global): "classic" or "shadow" in <plugin folder>/xenia-skin.txt ------------------------------------
+    int readSkin() const
+    {
+        std::ifstream f(skinFile_);
+        std::string w;
+        return (f >> w && w == "shadow") ? 1 : 0;
+    }
+
+    void writeSkin(int v) const   // worker thread (.tmp + rename)
+    {
+        const std::string tmp = skinFile_ + ".tmp";
+        { std::ofstream f(tmp, std::ios::trunc); if (!f) return; f << (v ? "shadow" : "classic") << "\n"; }
+        std::rename(tmp.c_str(), skinFile_.c_str());
     }
 
     // ---- favourites, random (kLocal) --------------------------------------------------------------------------------------------
@@ -654,6 +686,10 @@ private:
     std::mutex favMu_;
     std::vector<Fav> favs_;
     std::atomic<bool> favDirty_{false};
+    std::string skinFile_;
+    std::atomic<int> skin_{0};
+    std::atomic<bool> skinDirty_{false};
+    std::mutex skinMu_;
     std::atomic<long long> ignoreProgUntil_{0};
     int lastProgram_ = 0;   // worker thread
     // audio thread: resampler
