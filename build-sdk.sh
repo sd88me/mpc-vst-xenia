@@ -30,6 +30,10 @@ if [ "${1:-}" = test ]; then
   scratch="$(mktemp -d)"; trap 'rm -rf "$scratch"' EXIT
   mkdir -p "$scratch/xenia"; cp -r "${XENIA_ROMS:-roms}" "$scratch/xenia/roms"; cp plugin.json "$scratch/"
   HS="$SDK/.sdk-tools/host_sim"
+  if [ ! -x "$HS" ]; then   # built on first use, as the SDK's build.py does
+    mkdir -p "$SDK/.sdk-tools"
+    g++ -std=c++17 -O2 -I"$SDK/framework" -I"$SDK/tools/host-sim" -o "$HS" "$SDK/tools/host-sim/host_sim.cpp" -ldl -lpthread -lm
+  fi
   # dump: the JSON only (the emulator logs to stdout as it boots)
   MPC_PLUGIN_FOLDER="$scratch" "$HS" build/sdk-native/xenia.so dump 2>/dev/null | python3 -c '
 import json, sys
@@ -38,6 +42,7 @@ for i, c in enumerate(t):
     if c in "{[":
         try: obj, _ = d.raw_decode(t[i:]); break
         except ValueError: pass
+else: sys.exit("host_sim dump: no JSON in its output")
 json.dump(obj, sys.stdout, indent=1)' > build/sdk-native/params.json
   MPC_PLUGIN_FOLDER="$scratch" "$HS" build/sdk-native/xenia.so test --notes 60,64,67 --wav build/sdk-native/test.wav 2>&1 \
     | grep -v 'MIPS:\|LCD:\|^ \|GMT 2000\|HOTX\|_log@\|operator()\|Latency\|Resampler\|thread priority'
@@ -61,7 +66,7 @@ m.update(name=name, uid=uid, file64="VST/%s-arm64.so" % slug)
 json.dump(m, open(folder + "/plugin.json", "w"), indent=2)
 open(folder + "/version.xml", "w").write('<?xml version="1.0" encoding="utf-8"?>\n<plugincontent version="1.0">\n    <version>%s.0</version>\n    <uiversion>0.1.0.0</uiversion>\n</plugincontent>\n' % m["version"])
 PY
-cp release/xenia/roms/PUT_XT_ROM_HERE.txt "$FOLDER/xenia/roms/"; cp LICENSE CREDITS.md "$FOLDER/"
+cp release/xenia/roms/PUT_XT_ROM_HERE.txt "$FOLDER/xenia/roms/"; mkdir -p "$FOLDER/xenia/banks"; cp release/xenia/banks/PUT_SYSEX_BANKS_HERE.txt "$FOLDER/xenia/banks/"; cp LICENSE CREDITS.md "$FOLDER/"
 # a beta for the device gets your ROM and user banks inside its folder (mpc_remote.py update replaces the whole folder); never a release
 if [ "${1:-}" = beta ]; then
   [ -d "${XENIA_ROMS:-roms}" ] && cp "${XENIA_ROMS:-roms}"/* "$FOLDER/xenia/roms/"

@@ -1,0 +1,4 @@
+Put your own Microwave XT sound banks here: SysEx dumps (.syx) or MIDI files (.mid) that carry them.
+Single-sound dumps and all-sounds bank dumps both work, and subfolders are fine. Each file (or a folder that holds
+one file) becomes a bank after ROM banks A and B, named after the file or folder. Xenia reads this folder when it starts.
+Microwave I and microQ dumps use other formats and are skipped.

@@ -5,11 +5,69 @@
     "description": "Xenia needs the firmware of your own Waldorf Microwave II or XT: the 256 KB image, or its two 128 KB halves (the lower and upper chips).",
     "hint": "Any file names work. An OS update .mid can go next to a full ROM: the highest version runs.",
     "rules": [
-      {"label": "Microwave II/XT ROM", "ext": [".bin"], "size": 262144, "header_hex": "c0de"},
-      {"label": "Microwave II/XT ROM, first half", "ext": [".bin"], "size": 131072, "header_hex": "c000"},
-      {"label": "Microwave II/XT ROM, second half", "ext": [".bin"], "size": 131072, "header_hex": "de00"},
-      {"label": "Microwave XT OS update (.mid)", "ext": [".mid"], "size_min": 169984, "size_max": 175104, "header": "MThd", "unverified": true,
-       "note": "Looks like a Microwave XT OS update. It is used only next to a full ROM; the plugin checks it when it loads."}
+      {
+        "label": "Microwave II/XT ROM",
+        "ext": [
+          ".bin"
+        ],
+        "size": 262144,
+        "header_hex": "c0de"
+      },
+      {
+        "label": "Microwave II/XT ROM, first half",
+        "ext": [
+          ".bin"
+        ],
+        "size": 131072,
+        "header_hex": "c000"
+      },
+      {
+        "label": "Microwave II/XT ROM, second half",
+        "ext": [
+          ".bin"
+        ],
+        "size": 131072,
+        "header_hex": "de00"
+      },
+      {
+        "label": "Microwave XT OS update (.mid)",
+        "ext": [
+          ".mid"
+        ],
+        "size_min": 169984,
+        "size_max": 175104,
+        "header": "MThd",
+        "unverified": true,
+        "note": "Looks like a Microwave XT OS update. It is used only next to a full ROM; the plugin checks it when it loads."
+      }
+    ]
+  },
+  {
+    "path": "xenia/banks",
+    "label": "Microwave XT sound banks",
+    "description": "Optional: your own Microwave XT sound banks as SysEx (.syx) or MIDI (.mid) files. Each one appears as a bank after ROM banks A and B.",
+    "hint": "Single-sound and all-sounds dumps both work; subfolders are fine.",
+    "rules": [
+      {
+        "label": "Microwave XT SysEx dump",
+        "ext": [
+          ".syx"
+        ],
+        "size_min": 265,
+        "size_max": 4194304,
+        "header_hex": "f0"
+      },
+      {
+        "label": "MIDI file with SysEx dumps",
+        "ext": [
+          ".mid"
+        ],
+        "size_min": 300,
+        "size_max": 4194304,
+        "header": "MThd",
+        "unverified": true,
+        "note": "Xenia uses only the Microwave XT sound dumps inside it; it checks them when it loads."
+      }
     ]
   }
 ]

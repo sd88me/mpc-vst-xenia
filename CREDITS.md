@@ -10,6 +10,8 @@ Xenia stands on the work of others. Each licence applies to its own part; the pl
 - **The "xtDefault" skin of the Xenia plugin by theusualsuspects**, **GPL-3.0** (shipped with gearmulator): the amber chassis, the "Xenia" wordmark, the knob
   filmstrip and the look every page is drawn in (`skin/xtDefault/`).
 - **Liberation Sans** (Red Hat / Google, **SIL OFL 1.1**), the labels baked into the pages (`vst/fonts/`).
+- **Titillium Web** (Accademia di Belle Arti di Urbino, **SIL OFL 1.1**), the live text on the MPC screen and the skin's key captions (`tools/fonts/`).
+- **Akai MPC Plugin SDK** (inMusic Brands, **MIT**): the plugin framework (`mpc::Plugin`) the plugin is built on.
 - **[mpc-vst-plugins](https://github.com/sd88me/mpc-vst-plugins)**: the plugin wrapper (`wrapper/vst2_wrap.c`) and the skin tools.
 
 Xenia is an independent project, not affiliated with or endorsed by Waldorf Music. "Microwave" and "XT" are the names of the instrument it emulates.
