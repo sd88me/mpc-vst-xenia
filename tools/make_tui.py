@@ -372,12 +372,12 @@ def play_display(art, d, kids):
     for x0, y0, x1, y1 in ((740, 158, 840, 182), (1050, 158, 1140, 182)):   # the 1.x "Status" / "Stats" captions: fill from the left
         art.paste(art.crop((x0 - 110, y0, x1 - 110, y1)), (x0, y0))
     art.paste(art.crop((250, 116, 1280, 126)).resize((1030, 116)), (250, 0))     # clear the 1.x red bezel to plain panel
-    lens(d, 300, 2, 1276, 122)
-    display(d, 404, 26, 1180, 100)
-    display_row(d, kids, 404, 1180, 26, 70, [(700, "bank_name", "bank_prev", "bank_next"),
-                                            (1180, "preset_name", "preset_prev", "preset_next")], 28)
-    d.line((410, 71, 1174, 71), fill=(150, 148, 128), width=1)
-    display_row(d, kids, 404, 1180, 72, 100, [(780, "loading_status", None, None), (1180, "engine_stats", None, None)], 19)
+    lens(art, (262, 0, 1278, 124), (420, 30, 1150, 94))
+    display(d, 420, 30, 1150, 94)
+    display_row(d, kids, 420, 1150, 30, 64, [(704, "bank_name", "bank_prev", "bank_next"),
+                                            (1150, "preset_name", "preset_prev", "preset_next")], 26)
+    d.line((426, 65, 1144, 65), fill=(150, 148, 128), width=1)
+    display_row(d, kids, 420, 1150, 66, 94, [(770, "loading_status", None, None), (1150, "engine_stats", None, None)], 18)
     key_button(kids, "random_patch", 760, 190, "RANDOM", w=150)
     key_button(kids, "fav_add", 940, 190, "+ FAV", w=150)
     key_button(kids, "fav_del", 1120, 190, "- FAV", w=150)
@@ -415,12 +415,6 @@ def panel(art):
     for r in (520, 980):
         ds.arc((cx + 300 - r, cy + 900 - r, cx + 300 + r, cy + 900 + r), 200, 300, fill=60, width=2)
     rgb = art.load()
-    for y in range(h):                       # the 1.x blue headings and rules -> the XT's cream print (keeps the anti-aliasing)
-        for x in range(w):
-            R, G, B = rgb[x, y][:3]
-            if B > 40 and B > R:
-                a = min(1.0, (B - 10) / 168.0)
-                rgb[x, y] = tuple(max(0, min(255, int(v + a * (c - b)))) for v, c, b in zip((R, G, B), HEAD, BLUE))
     orange = Image.new("L", (w, h), 0)
     op = orange.load()
     for y in range(h):
@@ -436,16 +430,44 @@ def panel(art):
     return art
 
 
-def lens(d, x0, y0, x1, y1):
-    """The XT's display lens: a pale periwinkle ellipse with a lit upper edge, the LCD window set into it."""
-    d.ellipse((x0 + 2, y0 + 4, x1 + 2, y1 + 4), fill=(150, 60, 20))                 # its shadow on the panel
-    d.ellipse((x0, y0, x1, y1), fill=(122, 128, 214))
-    d.ellipse((x0 + 3, y0 + 2, x1 - 3, y1 - 4), fill=(160, 166, 240))
-    d.ellipse((x0 + 14, y0 + 6, x1 - 14, y1 - 12), fill=(176, 182, 248))
-    d.ellipse((x0 + 60, y0 + 4, x1 - 160, y0 + (y1 - y0) // 3), fill=(198, 204, 252))  # the highlight across the top
+def lens(art, rect, window, pill=False):
+    """The XT's display lens: a pale periwinkle glass (an ellipse, or a pill where the header is too low for one) with a lit top,
+    and the LCD window set INTO it: a recessed rim (shadow above, light below) with a clear margin of glass all round."""
+    S = 4
+    x0, y0, x1, y1 = rect
+    w, h = x1 - x0, y1 - y0
+    im = Image.new("RGBA", (w * S, h * S), (0, 0, 0, 0))
+    d = ImageDraw.Draw(im)
+
+    def shape(i, col):
+        box = (i * S, i * S, (w - i) * S - 1, (h - i) * S - 1)
+        if pill:
+            d.rounded_rectangle(box, (h // 2 - i) * S, fill=col)
+        else:
+            d.ellipse(box, fill=col)
+    shape(0, (78, 80, 150, 255))                  # the rim
+    shape(2, (138, 144, 226, 255))
+    shape(5, (162, 168, 242, 255))
+    hl = Image.new("RGBA", im.size, (0, 0, 0, 0))   # the light across the upper half of the glass
+    ImageDraw.Draw(hl).ellipse((w * S * 0.12, h * S * 0.06, w * S * 0.80, h * S * 0.42), fill=(214, 218, 255, 150))
+    im.alpha_composite(hl.filter(ImageFilter.GaussianBlur(6 * S)))
+    wx0, wy0, wx1, wy1 = [(v - o) * S for v, o in zip(window, (x0, y0, x0, y0))]
+    m = 7 * S
+    d = ImageDraw.Draw(im)
+    d.rounded_rectangle((wx0 - m, wy0 - m, wx1 + m, wy1 + m), 6 * S, fill=(108, 112, 196, 255))       # the recess: dark upper wall
+    d.rounded_rectangle((wx0 - m + 2 * S, wy0 - m + 4 * S, wx1 + m, wy1 + m), 6 * S, fill=(184, 188, 250, 255))  # lit lower wall
+    d.rounded_rectangle((wx0 - 3 * S, wy0 - 3 * S, wx1 + 3 * S, wy1 + 3 * S), 3 * S, fill=(64, 62, 110, 255))  # the window frame
+    im = im.resize((w, h), Image.LANCZOS)
+    sh = Image.new("RGBA", (w + 16, h + 16), (0, 0, 0, 0))   # a soft shadow on the panel below the lens
+    a = im.split()[3].point(lambda v: v * 0.45)
+    sh.paste((90, 30, 0, 255), (8, 12), a)
+    sh = sh.filter(ImageFilter.GaussianBlur(5))
+    base = art.convert("RGBA")
+    base.alpha_composite(sh.crop((0, 0, min(w + 16, art.width - x0 + 8), min(h + 16, art.height - y0 + 8))), (max(0, x0 - 8), max(0, y0 - 8)))
+    base.alpha_composite(im, (x0, y0))
+    art.paste(base.convert("RGB"))
 
 
-HEAD = (255, 236, 168)        # the XT's section print: pale cream italic
 XT_LCD = (184, 184, 160)      # the XT's grey-beige window, dark violet characters
 XT_INK = (56, 38, 84)
 
@@ -453,7 +475,6 @@ XT_INK = (56, 38, 84)
 # ---- the combined display: one olive LCD in the red bezel, fields split by printed rules, step arrows printed in ink ---------
 def display(d, x0, y0, x1, y1):
     """A large backlit LCD (static art): a dark glass edge, a top inner shadow, the 1.x olive with its dot grid."""
-    d.rectangle((x0 - 3, y0 - 3, x1 + 3, y1 + 3), fill=(92, 96, 150))
     d.rectangle((x0, y0, x1, y1), fill=XT_LCD)
     for x in range(x0 + 4, x1 - 3, 12):                                           # the character cells of the 2 x 40 LCD
         d.line((x, y0 + 4, x, y1 - 4), fill=(176, 176, 152))
@@ -529,15 +550,15 @@ def banks_page(fn):
     def heading(x0, x1, y, title):
         tw = int(hf.getlength(title))
         cx = (x0 + x1) // 2
-        d.line((x0, y, cx - tw // 2 - 12, y), fill=HEAD, width=2)
-        d.line((cx + tw // 2 + 12, y, x1, y), fill=HEAD, width=2)
-        d.text((cx, y), title, font=hf, fill=HEAD, anchor="mm")
+        d.line((x0, y, cx - tw // 2 - 12, y), fill=BLUE, width=2)
+        d.line((cx + tw // 2 + 12, y, x1, y), fill=BLUE, width=2)
+        d.text((cx, y), title, font=hf, fill=BLUE, anchor="mm")
 
     # header: the red bezel of PLAY's LCD: one display (bank | sound, with step arrows), RANDOM and the favourite keys
-    lens(d, 0, 0, 880, 68)
-    display(d, 60, 13, 820, 55)
-    display_row(d, p.kids, 60, 820, 13, 55, [(340, "bank_name", "bank_prev", "bank_next"),
-                                             (820, "preset_name", "preset_prev", "preset_next")], 26)
+    lens(art, (2, 0, 840, 70), (58, 15, 790, 55), pill=True)
+    display(d, 58, 15, 790, 55)
+    display_row(d, p.kids, 58, 790, 15, 55, [(340, "bank_name", "bank_prev", "bank_next"),
+                                             (790, "preset_name", "preset_prev", "preset_next")], 25)
     key_button(p.kids, "random_patch", 914, 34, "RANDOM", w=150, h=42)
     key_button(p.kids, "fav_add", 1062, 34, "+ FAV", w=124, h=42)
     key_button(p.kids, "fav_del", 1196, 34, "- FAV", w=124, h=42)
@@ -557,12 +578,12 @@ def banks_page(fn):
     for i in range(10):
         tile("bank_slot_%d" % (i + 1), 20, 112 + 45 * i, 280, 41)
     stepper(d, p.kids, 160, 584, 280, 40, "bank_page_text", "bank_page_prev", "bank_page_next")
-    d.line((312, 84, 312, 616), fill=HEAD, width=2)
+    d.line((312, 84, 312, 616), fill=BLUE, width=2)
     # sounds of the current bank, 30 per page (down the columns), the page stepper on the heading line
     hf2 = hf
-    d.line((326, 92, 470, 92), fill=HEAD, width=2)
-    d.text((540, 92), "Sounds", font=hf2, fill=HEAD, anchor="mm")
-    d.line((610, 92, 950, 92), fill=HEAD, width=2)
+    d.line((326, 92, 470, 92), fill=BLUE, width=2)
+    d.text((540, 92), "Sounds", font=hf2, fill=BLUE, anchor="mm")
+    d.line((610, 92, 950, 92), fill=BLUE, width=2)
     stepper(d, p.kids, 1112, 92, 300, 38, "patch_page_text", "patch_page_prev", "patch_page_next")
     for c in range(3):
         for r in range(10):
