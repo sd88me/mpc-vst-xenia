@@ -135,7 +135,21 @@ def definitions():
         ("actions", [{"version": 1, "onAction": "Focus Lost", "handler": "Focus Lost", "handleName": "Focus Lost", "additionalData": ""}]),
         ("overlayType", "Knob With Header"), ("scaleType", "Linear"), ("polarityType", "Unipolar"),
         ("showMinusSign", True), ("handleName", "Data")), "0 0 1280 800", focus="Yes")], ignore=True)
-    return [{"key": "xknob", "value": knob}, {"key": "xknob_red", "value": knob_def("knob_xt_red.png")}, {"key": "knob overlay", "value": knob_overlay}]
+    out = [{"key": "xknob", "value": knob}, {"key": "xknob_red", "value": knob_def("knob_xt_red.png")}, {"key": "knob overlay", "value": knob_overlay}]
+    # LCD fields: an invisible value slider over the live bank / sound name, so the data wheel, a Q-Link or a drag steps it
+    for w, h in sorted(FIELDS):
+        ts = {"version": 1, "font": {"version": 1, "name": "Roboto", "style": "Regular", "height": 20.0}, "colour": "00000000",
+              "justification": "horizontallyCentred verticallyCentred", "case": "Original"}
+        out.append({"key": "lcdfield%dx%d" % (w, h), "value": component([
+            entry("focus", "Focus", FOCUS, "0 0 %d %d" % (w, h), visible="WhenFocussed"),
+            entry("field", "Knob", {"version": 4, "knobType": "ValueSlider", "textStyle": ts, "dragOrientation": "Horizontal",
+                                    "handleName": "Data"}, "0 0 %d %d" % (w, h)),
+        ], actions=[act("Mouse Down", "Q-Link")])})
+    return out
+
+
+FIELDS = set()                                         # (w, h) of every LCD field drawn (display_row)
+FIELD_KEY = {"bank_name": "bank_index", "preset_name": "preset"}   # the value a name's field steps
 
 
 # ---- art ---------------------------------------------------------------------------------------------------------------------
@@ -429,6 +443,8 @@ def layout_tab(name, fn, spec):
         p = Page(name, fn, sub)
         p.kids = list(kids) + list(panels)
         for keys, rect in blocks:
+            if name == "PLAY" and keys == ["Detune"]:
+                keys = ["Detune", "bank_index", "preset"]   # the row's free Q-Links step the bank and the sound in the display
             p.qgroup(rect, keys)
         pages.append(p)
     return pages, art
@@ -602,6 +618,11 @@ def display_row(d, kids, x0, x1, y0, y1, fields, size, aw=40):
                 d.polygon([(c + dr * s * 0.7, cy), (c - dr * s * 0.7, cy - s), (c - dr * s * 0.7, cy + s)], fill=XT_INK)
                 hit_zone(kids, k, ax, y0, aw, y1 - y0)
         kids.append(label("%d %d %d %d" % (xs + pad + 10, y0, xe - xs - 2 * pad - 16, y1 - y0), get, size, "ff161a08", "left verticallyCentred"))
+        if get in FIELD_KEY:   # the name steps its value: data wheel, Q-Link, drag
+            fw, fh = xe - xs - 2 * pad, y1 - y0
+            FIELDS.add((fw, fh))
+            kids.append(entry(FIELD_KEY[get] + " field", "lcdfield%dx%d" % (fw, fh), {"version": 1, "handleName": "Data"},
+                              "%d %d %d %d" % (xs + pad, y0, fw, fh), remap=P(FIELD_KEY[get]), focus="Yes"))
         xs = xe
 
 
