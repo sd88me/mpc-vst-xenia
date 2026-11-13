@@ -39,10 +39,10 @@ def P(key):
 INK = (38, 22, 6)
 BLUE = (22, 118, 178)
 BLUE_HI = (59, 155, 216)
-LCD = (184, 184, 160)         # the XT's display glass (grey-beige) for every LCD-style field, violet characters
-LCD_CELL = (176, 176, 152)
-LCD_EDGE = (104, 100, 140)
-LCD_INK = (56, 38, 84)
+LCD = (176, 212, 228)         # every LCD-style field (pick-lists, tiles, readouts) in the XT's pale cyan lens glass, navy print
+LCD_CELL = (168, 204, 222)
+LCD_EDGE = (84, 126, 156)
+LCD_INK = (20, 40, 90)
 BEZEL = (184, 40, 29)
 BEZEL_DK = (122, 24, 16)
 DARK = (31, 36, 20)
@@ -330,7 +330,7 @@ def layout_tab(name, fn, spec):
         if kind == "popup":
             w, h = int(a["w"]), max(int(a["h"]), 36)
             popup_box(d, cx, cy, w, h)
-            kids.append(label("%d %d %d %d" % (cx - w // 2 + 8, cy - h // 2, w - 40, h), key, 21, "ff382654", "left verticallyCentred"))
+            kids.append(label("%d %d %d %d" % (cx - w // 2 + 8, cy - h // 2, w - 40, h), key, 21, "ff14285a", "left verticallyCentred"))
             kids.append(entry(key + " field", "Button", {"version": 2, "onImage": CLEAR, "offImage": CLEAR, "buttonId": POPUPS.index(key) + 1,
                                                          "numButtonsInGroup": UI_STEPS, "handleName": "Data", "gestureBehaviour": GESTURE},
                               "%d %d %d %d" % (cx - w // 2, cy - h // 2, w, h), remap=P("ui_open")))
@@ -351,7 +351,7 @@ def layout_tab(name, fn, spec):
         elif kind == "readout":
             w, h = int(a["w"]), int(a["h"])
             lcd_box(d, cx - w // 2, cy - h // 2, cx + w // 2, cy + h // 2)
-            kids.append(label("%d %d %d %d" % (cx - w // 2 + 6, cy - h // 2, w - 12, h), key, 21, "ff382654"))
+            kids.append(label("%d %d %d %d" % (cx - w // 2 + 6, cy - h // 2, w - 12, h), key, 21, "ff14285a"))
         elif kind == "stepper":
             w, h = int(a["w"]), int(a["h"])
             stepper(d, kids, cx, cy, w, h, a["get"], a["prev"], a["next"])
@@ -372,12 +372,12 @@ def play_display(art, d, kids):
     for x0, y0, x1, y1 in ((740, 158, 840, 182), (1050, 158, 1140, 182)):   # the 1.x "Status" / "Stats" captions: fill from the left
         art.paste(art.crop((x0 - 110, y0, x1 - 110, y1)), (x0, y0))
     art.paste(art.crop((250, 116, 1280, 126)).resize((1030, 116)), (250, 0))     # clear the 1.x red bezel to plain panel
-    lens(art, (262, 0, 1278, 124), (420, 30, 1150, 94))
-    display(d, 420, 30, 1150, 94)
-    display_row(d, kids, 420, 1150, 30, 64, [(704, "bank_name", "bank_prev", "bank_next"),
-                                            (1150, "preset_name", "preset_prev", "preset_next")], 26)
-    d.line((426, 65, 1144, 65), fill=(150, 148, 128), width=1)
-    display_row(d, kids, 420, 1150, 66, 94, [(770, "loading_status", None, None), (1150, "engine_stats", None, None)], 18)
+    lens(art, (252, 0, 1278, 126), (400, 22, 1110, 86), keys=4)
+    display(d, 400, 22, 1110, 86)
+    display_row(d, kids, 400, 1110, 22, 56, [(674, "bank_name", "bank_prev", "bank_next"),
+                                            (1110, "preset_name", "preset_prev", "preset_next")], 26)
+    d.line((406, 57, 1104, 57), fill=(110, 150, 240), width=1)
+    display_row(d, kids, 400, 1110, 58, 86, [(740, "loading_status", None, None), (1110, "engine_stats", None, None)], 18)
     key_button(kids, "random_patch", 760, 190, "RANDOM", w=150)
     key_button(kids, "fav_add", 940, 190, "+ FAV", w=150)
     key_button(kids, "fav_del", 1120, 190, "- FAV", w=150)
@@ -387,7 +387,7 @@ def stepper(d, kids, cx, cy, w, h, get, prev, nxt):
     """An LCD field with an arrow key either side (the header of PLAY and BANKS)."""
     aw = 40
     lcd_box(d, cx - w // 2 + aw, cy - h // 2, cx + w // 2 - aw, cy + h // 2)
-    kids.append(label("%d %d %d %d" % (cx - w // 2 + aw + 12, cy - h // 2, w - 2 * aw - 24, h), get, 22, "ff382654", "left verticallyCentred"))
+    kids.append(label("%d %d %d %d" % (cx - w // 2 + aw + 12, cy - h // 2, w - 2 * aw - 24, h), get, 22, "ff14285a", "left verticallyCentred"))
     for k, bx, dr in ((prev, cx - w // 2, -1), (nxt, cx + w // 2 - aw, 1)):
         button(kids, k, "%d %d %d %d" % (bx, cy - h // 2, aw, h), save(arrow_image(aw, h, dr, True), "arrow_%d_on.png" % dr),
                save(arrow_image(aw, h, dr, False), "arrow_%d_off.png" % dr))
@@ -403,11 +403,11 @@ def panel(art):
     rings = Image.new("L", (w, h), 0)
     d = ImageDraw.Draw(rings)
     cx, cy = ARC_CENTRE
-    r, step = 150, 46
+    r, step = 170, 90
     while r < 1500:
-        d.ellipse((cx - r, cy - r, cx + r, cy + r), outline=150 if r < 400 else 105, width=3 if r < 400 else 2)
+        d.ellipse((cx - r, cy - r, cx + r, cy + r), outline=170, width=2)
         r += step
-        step = int(step * 1.18)
+        step = int(step * 1.25)
     sweeps = Image.new("L", (w, h), 0)
     ds = ImageDraw.Draw(sweeps)
     for x0, x1 in ((330, 520), (610, 760), (1070, 1150)):      # the long thin lines that cut across the sections
@@ -423,40 +423,62 @@ def panel(art):
             if R > 215 and B < 60 and 95 < G < 175:
                 op[x, y] = 255
     orange = orange.filter(ImageFilter.MinFilter(5))             # keep a little air around captions and rules
-    red = Image.new("RGB", (w, h), (226, 52, 44))
+    red = Image.new("RGB", (w, h), (150, 104, 34))          # the XT's rings: thin dark-gold lines
     cream = Image.new("RGB", (w, h), (255, 214, 120))
     art = Image.composite(red, art, ImageChops.multiply(rings, orange))
     art = Image.composite(cream, art, ImageChops.multiply(sweeps, orange))
     return art
 
 
-def lens(art, rect, window, pill=False):
-    """The XT's display lens: a pale periwinkle glass (an ellipse, or a pill where the header is too low for one) with a lit top,
-    and the LCD window set INTO it: a recessed rim (shadow above, light below) with a clear margin of glass all round."""
+def lens(art, rect, window, pill=False, keys=0):
+    """The XT's display lens: pale cyan glass, round on the left and tapering to a point on the right (a pill where the header is
+    too low), lit along the top, the LCD window set into it with a recessed rim, two screws left of it, one right, and `keys`
+    soft-key segments printed under the window."""
     S = 4
     x0, y0, x1, y1 = rect
     w, h = x1 - x0, y1 - y0
     im = Image.new("RGBA", (w * S, h * S), (0, 0, 0, 0))
     d = ImageDraw.Draw(im)
 
-    def shape(i, col):
-        box = (i * S, i * S, (w - i) * S - 1, (h - i) * S - 1)
+    def outline(i):
         if pill:
-            d.rounded_rectangle(box, (h // 2 - i) * S, fill=col)
+            return None
+        pts, n, H = [], 200, (h / 2 - i) * S
+        top = max((u ** 0.4) * ((1 - u) ** 0.5) for u in [k / n for k in range(n + 1)])
+        for k in list(range(n + 1)) + list(range(n, -1, -1)):
+            u = k / n
+            hh = H * (u ** 0.4) * ((1 - u) ** 0.5) / top
+            pts.append((i * S + u * (w - 2 * i) * S, h * S / 2 + (hh if len(pts) > n else -hh)))
+        return pts
+
+    def shape(i, col):
+        if pill:
+            d.rounded_rectangle((i * S, i * S, (w - i) * S - 1, (h - i) * S - 1), (h // 2 - i) * S, fill=col)
         else:
-            d.ellipse(box, fill=col)
-    shape(0, (78, 80, 150, 255))                  # the rim
-    shape(2, (138, 144, 226, 255))
-    shape(5, (162, 168, 242, 255))
-    hl = Image.new("RGBA", im.size, (0, 0, 0, 0))   # the light across the upper half of the glass
-    ImageDraw.Draw(hl).ellipse((w * S * 0.12, h * S * 0.06, w * S * 0.80, h * S * 0.42), fill=(214, 218, 255, 150))
+            d.polygon(outline(i), fill=col)
+    shape(0, (70, 112, 140, 255))                 # the rim
+    shape(2, (150, 196, 220, 255))
+    shape(5, (176, 216, 234, 255))
+    hl = Image.new("RGBA", im.size, (0, 0, 0, 0))   # the light along the upper half of the glass
+    ImageDraw.Draw(hl).ellipse((w * S * 0.06, h * S * 0.10, w * S * 0.78, h * S * 0.40), fill=(230, 246, 255, 150))
     im.alpha_composite(hl.filter(ImageFilter.GaussianBlur(6 * S)))
     wx0, wy0, wx1, wy1 = [(v - o) * S for v, o in zip(window, (x0, y0, x0, y0))]
-    m = 7 * S
     d = ImageDraw.Draw(im)
-    d.rounded_rectangle((wx0 - m, wy0 - m, wx1 + m, wy1 + m), 6 * S, fill=(108, 112, 196, 255))       # the recess: dark upper wall
-    d.rounded_rectangle((wx0 - m + 2 * S, wy0 - m + 4 * S, wx1 + m, wy1 + m), 6 * S, fill=(184, 188, 250, 255))  # lit lower wall
-    d.rounded_rectangle((wx0 - 3 * S, wy0 - 3 * S, wx1 + 3 * S, wy1 + 3 * S), 3 * S, fill=(64, 62, 110, 255))  # the window frame
+    for k in range(1, keys):                       # the soft-key segments under the window
+        x = wx0 + (wx1 - wx0) * k / keys
+        d.line((x, wy1 + 6 * S, x, h * S - 9 * S), fill=(110, 156, 186, 255), width=S)
+        d.line((x + S, wy1 + 6 * S, x + S, h * S - 9 * S), fill=(214, 236, 248, 255), width=S)
+    if keys:
+        d.line((wx0, wy1 + 6 * S, wx1, wy1 + 6 * S), fill=(214, 236, 248, 255), width=S)
+    m = 6 * S
+    d.rounded_rectangle((wx0 - m, wy0 - m, wx1 + m, wy1 + m), 5 * S, fill=(112, 160, 190, 255))         # the recess: dark upper wall
+    d.rounded_rectangle((wx0 - m + 2 * S, wy0 - m + 4 * S, wx1 + m, wy1 + m), 5 * S, fill=(212, 236, 248, 255))  # lit lower wall
+    d.rectangle((wx0 - 3 * S, wy0 - 3 * S, wx1 + 3 * S, wy1 + 3 * S), fill=(20, 30, 70, 255))            # the window frame
+    if not pill:
+        cy = (wy0 + wy1) / 2
+        for sx in (wx0 - 70 * S, wx0 - 38 * S, wx1 + 34 * S):
+            d.ellipse((sx - 6 * S, cy - 6 * S, sx + 6 * S, cy + 6 * S), fill=(90, 124, 150, 255))
+            d.ellipse((sx - 4 * S, cy - 4 * S, sx + 4 * S, cy + 4 * S), fill=(40, 60, 84, 255))
     im = im.resize((w, h), Image.LANCZOS)
     sh = Image.new("RGBA", (w + 16, h + 16), (0, 0, 0, 0))   # a soft shadow on the panel below the lens
     a = im.split()[3].point(lambda v: v * 0.45)
@@ -468,17 +490,18 @@ def lens(art, rect, window, pill=False):
     art.paste(base.convert("RGB"))
 
 
-XT_LCD = (184, 184, 160)      # the XT's grey-beige window, dark violet characters
-XT_INK = (56, 38, 84)
+XT_INK = (232, 238, 255)      # the XT's blue backlit LCD: white characters
 
 
 # ---- the combined display: one olive LCD in the red bezel, fields split by printed rules, step arrows printed in ink ---------
 def display(d, x0, y0, x1, y1):
-    """A large backlit LCD (static art): a dark glass edge, a top inner shadow, the 1.x olive with its dot grid."""
-    d.rectangle((x0, y0, x1, y1), fill=XT_LCD)
+    """The XT's blue backlit LCD (static art): brighter in the middle, faint character cells, the glass shadow under the lens."""
+    for y in range(y0, y1 + 1):
+        t = abs((y - y0) / max(1, y1 - y0) - 0.5) * 2
+        d.line((x0, y, x1, y), fill=(int(64 - 22 * t), int(116 - 30 * t), int(236 - 20 * t)))
     for x in range(x0 + 4, x1 - 3, 12):                                           # the character cells of the 2 x 40 LCD
-        d.line((x, y0 + 4, x, y1 - 4), fill=(176, 176, 152))
-    for i, c in enumerate(((128, 126, 112), (148, 147, 128), (166, 165, 144))):   # the glass shadow under the lens
+        d.line((x, y0 + 4, x, y1 - 4), fill=(58, 106, 228))
+    for i, c in enumerate(((22, 40, 110), (34, 62, 150), (46, 86, 190))):         # the glass shadow under the lens
         d.line((x0 + 1, y0 + 1 + i, x1 - 1, y0 + 1 + i), fill=c)
 
 
@@ -505,7 +528,7 @@ def display_row(d, kids, x0, x1, y0, y1, fields, size, aw=40):
                 c, s = ax + aw // 2, 9
                 d.polygon([(c + dr * s * 0.7, cy), (c - dr * s * 0.7, cy - s), (c - dr * s * 0.7, cy + s)], fill=XT_INK)
                 hit_zone(kids, k, ax, y0, aw, y1 - y0)
-        kids.append(label("%d %d %d %d" % (xs + pad + 10, y0, xe - xs - 2 * pad - 16, y1 - y0), get, size, "ff382654", "left verticallyCentred"))
+        kids.append(label("%d %d %d %d" % (xs + pad + 10, y0, xe - xs - 2 * pad - 16, y1 - y0), get, size, "fff0f4ff", "left verticallyCentred"))
         xs = xe
 
 
@@ -567,7 +590,7 @@ def banks_page(fn):
 
     def tile(key, x, y, w, h):
         lcd_box(d, x, y, x + w - 1, y + h - 1)
-        p.kids.append(label("%d %d %d %d" % (x + 10, y, w - 16, h), key, 21, "ff382654", "left verticallyCentred"))
+        p.kids.append(label("%d %d %d %d" % (x + 10, y, w - 16, h), key, 21, "ff14285a", "left verticallyCentred"))
         on = "tile_on_%dx%d.png" % (w, h)
         if not os.path.exists(os.path.join(OUT, on)):
             save(lit.resize((w, h)), on)
