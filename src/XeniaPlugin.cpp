@@ -204,7 +204,7 @@ public:
         const PSpec& s = g_pspecs[index];
         if (s.flags & (kUi | kReserved)) return;
         if (s.flags & kLocal) { localChanged(index, plain); return; }
-        hostAt_[index].store(nowMs());
+        const long long prevAt = hostAt_[index].exchange(nowMs());   // the host's previous move of it (for "a turn": see PRESET below)
         if (loading_.load()) return;             // an MPC chunk is restoring values: the engine state follows as extra state
         if ((s.flags & kChoice) && get(kUiParam) > 0.5f)   // a pick from the open drawn list closes it
         {
@@ -230,10 +230,27 @@ public:
             const float pos = getNormalised(index) * span;
             const float cur = told_[index] > -1.0e8f ? told_[index] - s.min : pos;
             float steps = settle(pos, cur, lastPos_[(size_t)index]);
-            // The data wheel on PRESET moves the host value by more than one step per click on a long range: a small off-step move
-            // there is one step in its direction (a drag or Q-Link still lands where it points).
-            if (!std::strcmp(s.key, "preset") && std::fabs(pos - std::round(pos)) > 0.001f && std::fabs(pos - cur) < 3.0f && pos != cur)
-                steps = cur + (pos > cur ? 1.0f : -1.0f);
+            // A Q-Link or data-wheel tick on PRESET (0..255) or BANK (0..63) moves the host's value about two (half a) steps, off a step:
+            // one sound / bank a tick. Originally: a tick on PRESET (0..255) moves the host's value about two steps, off a step: one sound a tick, in
+            // the way the host's value moved. While the control turns the read-back waits 300 ms, so the host's value runs ahead of the
+            // sound: the direction is then judged from the host's previous position, not from the sound (JV-880 2.0.1's lesson).
+            const float last = lastPos_[(size_t)index];
+            // At an end of the range (the host's value gets there long before the sound does) a tick is clamped onto a step: during a
+            // turn (moves under 300 ms apart; a set to 0 or the top on its own is that value) it is still one sound that way, and the worker sends the sound back at once (no hold) so the control has room again.
+            const bool atEnd = pos <= 0.001f || pos >= span - 0.001f;
+            const bool stepped = !std::strcmp(s.key, "preset") || !std::strcmp(s.key, "bank_index");   // BANK: a tick is about half a step
+            if (stepped && atEnd && nowMs() - prevAt < 300 && last >= 0 && std::fabs(pos - last) < 3.0f && pos != last)
+            {
+                steps = std::round(cur) + (pos > last ? 1.0f : -1.0f);
+                hostAt_[index].store(0);
+            }
+            else if (stepped && std::fabs(pos - std::round(pos)) > 0.001f)
+            {
+                if (last >= 0 && std::fabs(pos - last) < 3.0f && pos != last)
+                    steps = std::round(cur) + (pos > last ? 1.0f : -1.0f);
+                else if (std::fabs(pos - cur) < 3.0f && pos != cur)
+                    steps = std::round(cur) + (pos > cur ? 1.0f : -1.0f);
+            }
             lastPos_[(size_t)index] = pos;
             steps = std::min(std::max(steps, 0.0f), span);
             v = s.min + steps;
