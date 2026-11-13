@@ -316,14 +316,13 @@ def pick_panel(key, opts):
     rows = -(-len(opts) // cols)
     cw = 260 if cols == 1 else min(236, (1240 - 16) // cols - gap)
     pw, ph = cols * (cw + gap) + gap + 12, hdr + rows * (ch + gap) + gap + 10
-    ck = "list_%d_%s" % (len(opts), hashlib.md5("|".join(opts).encode()).hexdigest()[:8])
+    ck = T("list", "dklist") + "_%d_%s" % (len(opts), hashlib.md5("|".join(opts).encode()).hexdigest()[:8])
     if ck not in PICK_DEFS:
         im = Image.new("RGBA", (pw, ph), (0, 0, 0, 0))
         d = ImageDraw.Draw(im)
-        d.rounded_rectangle((0, 0, pw - 1, ph - 1), 8, fill=(16, 16, 17))          # charcoal, like the keys: fits both panels
-        d.rounded_rectangle((2, 2, pw - 3, ph - 3), 7, fill=(46, 47, 49))
-        d.line((10, 3, pw - 11, 3), fill=(74, 75, 78))
-        d.text((16, hdr // 2 + 1), "SELECT", font=F(19, os.path.join(LIB, "LiberationSans-BoldItalic.ttf")), fill=(214, 214, 208), anchor="lm")
+        d.rounded_rectangle((0, 0, pw - 1, ph - 1), 8, fill=T((96, 100, 176), (60, 104, 122)))     # the lens glass of the skin: a thin rim,
+        d.rounded_rectangle((2, 2, pw - 3, ph - 3), 7, fill=T((160, 166, 240), (142, 198, 214)))  # periwinkle (Classic) / cyan (Shadow)
+        d.text((16, hdr // 2 + 1), "SELECT", font=F(19, os.path.join(LIB, "LiberationSans-BoldItalic.ttf")), fill=T((30, 32, 84), (16, 52, 66)), anchor="lm")
         kids = [entry("panel", "Image", {"version": 2, "imageType": "Regular", "colour": "0", "image": save(im, ck + "_bg.png")}, "0 0 %d %d" % (pw, ph))]
         size = 16 if cw >= 200 else 14
         for i, o in enumerate(opts):
@@ -838,6 +837,7 @@ def main():
         preview([p for p in pages if p.name == "OSC"], arts, dd, open_list=POPUPS.index("Wave") + 1)
         preview([p for p in pages if p.name == "SLOTS 1-8"], arts, dd, open_list=POPUPS.index("Slot1Destination") + 1)
         preview([p for p in pages if p.name == "PLAY"], arts, dd, open_list=POPUPS.index("EffectType") + 1)
+        preview([p for p in passes["shadow"][0] if p.name == "PLAY"], passes["shadow"][1], dd, open_list=POPUPS.index("EffectType") + 1, suffix="_shadow")
     print("wrote", OUT, "-", len(tabs), "tabs (", len(TAB_ORDER), "keys),", len(os.listdir(OUT)), "files,", len(PICK_DEFS), "pick-lists")
 
 
