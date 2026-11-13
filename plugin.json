@@ -1,7 +1,7 @@
 {
   "name": "Xenia",
   "manufacturer": "sd88me",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "kind": "instrument",
   "uid": "XenA",
   "numInputs": 0,

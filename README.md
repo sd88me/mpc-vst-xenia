@@ -41,10 +41,10 @@ starts; until it finds one the display says `No Microwave XT ROM in xenia/roms/`
 
 ## Install
 From [Releases](https://github.com/sd88me/mpc-vst-xenia/releases):
-- **`Xenia-1.0.0-mpc-sdk.zip`**: the plugin folder `sd88me - VST - Xenia`. Copy it into a `VST2 Plugins` folder on a drive of the MPC, put your ROM in
+- **`Xenia-1.0.1-mpc-sdk.zip`**: the plugin folder `sd88me - VST - Xenia`. Copy it into a `VST2 Plugins` folder on a drive of the MPC, put your ROM in
   its `xenia/roms/`, and restart the MPC. This needs MPC OS 3.10.1 or later, with **Preferences → Enhancements (Beta) → Enable Enhancements** and
   **External Plugin Support** switched on. Xenia is then listed under External VST Plugins → sd88me.
-- **`Xenia-1.0.0-mpc-aarch64.zip`**: unzip, copy the folder to the device and run `sh install.sh` as root (it stops and restarts MPC and backs up
+- **`Xenia-1.0.1-mpc-aarch64.zip`**: unzip, copy the folder to the device and run `sh install.sh` as root (it stops and restarts MPC and backs up
   `MPC.settings`; on a Live III the writable drive is `/nvme/Synths`: `sh install.sh -t /nvme/Synths`). It upgrades a 0.1.x install in place and keeps
   your ROM, sound banks, favourites and skin choice.
 
