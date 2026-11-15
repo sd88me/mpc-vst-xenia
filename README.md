@@ -6,7 +6,7 @@ built on Akai's MPC Plugin SDK. It runs the original XT firmware on [gearmulator
 
 ![The PLAY page, Classic skin](docs/screenshots/xenia-play.png)
 
-**Status: 1.0.0, tested on an MPC Live III** with a real Microwave XT ROM and 20 user sound banks: it loads, plays, browses the ROM and user banks, and every
+**Status: 1.1.0 (PLAY redrawn like the XT front, named favourites, a SKIN key); tested on an MPC Live III** with a real Microwave XT ROM and 20 user sound banks: it loads, plays, browses the ROM and user banks, and every
 page, pick-list, key and both skins work. The Force and the 32-bit MPCs are not supported: the emulator's JIT has no 32-bit ARM backend. One part in Multi
 mode (the XT's power-on state): the multi, wave editor and Global menu are not exposed.
 
