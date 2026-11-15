@@ -386,7 +386,7 @@ EXTRA_KNOBS = {"OSC": [("Wave", 584, 456)]}   # Wavetable is a pick-list in 1.x:
 # leader lines (each under its quarter of LCD line 2), the keys 2 x 3 beside the dial, Voice under them, Effect and Output along the bottom.
 PLAY_POS = {"play_v1": (208, 318), "play_v2": (358, 318), "play_v3": (508, 318), "play_v4": (658, 318),
             "play1": (208, 398), "play2": (358, 398), "play3": (508, 398), "play4": (658, 398),
-            "AllocationMode": (948, 360), "Assignment": (1072, 360), "Detune": (1210, 356),
+            "AllocationMode": (940, 360), "Assignment": (1064, 360), "Detune": (1192, 356),
             "EffectType": (90, 540), "EffectParamA": (230, 536), "EffectParamB": (350, 536), "EffectParamC": (470, 536), "ChorusEnabled": (578, 536),
             "AmpVolume": (735, 536), "Pan": (885, 536), "gain": (1035, 536), "dsp_clock": (1185, 536)}
 PLAY_CAPS = {"AllocationMode": "Alloc", "Assignment": "Assign", "Detune": "Detune", "EffectType": "Type", "EffectParamA": "Param A",
@@ -499,7 +499,7 @@ def play_art(art):
         x, y = PLAY_POS[k]
         d.line((x, LCD_Y1 + 7, x, y - BIG // 2 + 8), fill=lead, width=3)
     blue = T(BLUE, TEAL)
-    for x0, x1, y, title in ((890, 1270, 296, "Voice"), (20, 620, 456, "Effect"), (660, 1260, 456, "Output")):
+    for x0, x1, y, title in ((880, 1260, 296, "Voice"), (20, 620, 456, "Effect"), (660, 1260, 456, "Output")):
         d.line((x0, y, x1, y), fill=blue, width=2)
         f = F(21, TIT_B)
         w = f.getlength(title) + 18
