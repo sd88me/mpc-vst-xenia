@@ -139,7 +139,7 @@ def knob_strip(size=76, frames=101, red=False, bipolar=False, fill="ring", point
         im = base.copy()
         if fill == "ring" and hi - lo > 0.5:
             ImageDraw.Draw(im).arc((cx - rr, cy - rr, cx + rr, cy + rr), lo, hi, fill=col + (255,), width=int(4 * S))
-            im.alpha_composite(cap)
+        im.alpha_composite(cap)
         if pointer:
             pa = math.radians(-135 + 270 * t - 90)
             pd = ImageDraw.Draw(im)
