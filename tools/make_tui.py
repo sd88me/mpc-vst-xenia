@@ -120,6 +120,7 @@ def label(b, key, h=20, colour=None, just="horizontallyCentred verticallyCentred
 
 
 KNOB = 72                     # the drawn knob (tools/xenia_knobs.py): the cone with a value fill ring, at 72 px
+BIG = 104                     # Play 1-4 on PLAY
 DIAL, DIAL_FRAMES = 240, 64   # PLAY's red data dial (240 x 64 frames: under the MPC's 16384 px image height)
 FOCUS = {"version": 1, "backgroundColour": "00000000", "outlineColour": "ff1676b2", "backgroundInset": 4.0, "outlineThickness": 2.0}
 
@@ -139,7 +140,8 @@ def definitions():
         ("showMinusSign", True), ("handleName", "Data")), "0 0 1280 800", focus="Yes")], ignore=True)
     out = [{"key": "xknob", "value": knob}, {"key": "xknob_red", "value": knob_def("knob_xt_red.png")}, {"key": "knob overlay", "value": knob_overlay},
            {"key": "dk_xknob", "value": knob_def("dk_knob_xt.png")}, {"key": "xdial", "value": knob_def("dial_xt.png", DIAL, DIAL_FRAMES)},
-           {"key": "dk_xdial", "value": knob_def("dk_dial_xt.png", DIAL, DIAL_FRAMES)}]
+           {"key": "dk_xdial", "value": knob_def("dk_dial_xt.png", DIAL, DIAL_FRAMES)},
+           {"key": "xknob_big", "value": knob_def("knob_xt_big.png", BIG)}, {"key": "dk_xknob_big", "value": knob_def("dk_knob_xt_big.png", BIG)}]
     # LCD fields: an invisible value slider over the live bank / sound name, so the data wheel, a Q-Link or a drag steps it
     for w, h in sorted(FIELDS):
         ts = {"version": 1, "font": {"version": 1, "name": "Roboto", "style": "Regular", "height": 20.0}, "colour": "00000000",
@@ -242,6 +244,7 @@ def knob_strip():
     K.FILL = T((226, 52, 44), TEAL)
     K.TRACK, K.TRACK_HI, K.SHADOW = T(((150, 70, 0), (255, 196, 110), (90, 40, 0)), ((14, 14, 16), (90, 96, 100), (0, 0, 0)))
     save(K.knob_strip(KNOB), "knob_xt.png")
+    save(K.knob_strip(BIG), "knob_xt_big.png")
     if THEME == "classic":
         K.FILL_RED = (255, 196, 60)
         save(K.knob_strip(KNOB, red=True), "knob_xt_red.png")
@@ -381,7 +384,7 @@ EXTRA_KNOBS = {"OSC": [("Wave", 584, 456)]}   # Wavetable is a pick-list in 1.x:
 
 # PLAY, laid out like the XT's front (2026-11-15): the LCD in the teal ellipse, the red data dial at its end, Play 1-4 under the LCD on
 # leader lines (each under its quarter of LCD line 2), the keys 2 x 3 beside the dial, Voice under them, Effect and Output along the bottom.
-PLAY_POS = {"play_v1": (208, 300), "play_v2": (358, 300), "play_v3": (508, 300), "play_v4": (658, 300),
+PLAY_POS = {"play_v1": (208, 318), "play_v2": (358, 318), "play_v3": (508, 318), "play_v4": (658, 318),
             "play1": (208, 398), "play2": (358, 398), "play3": (508, 398), "play4": (658, 398),
             "AllocationMode": (948, 360), "Assignment": (1072, 360), "Detune": (1210, 356),
             "EffectType": (90, 540), "EffectParamA": (230, 536), "EffectParamB": (350, 536), "EffectParamC": (470, 536), "ChorusEnabled": (578, 536),
@@ -442,9 +445,11 @@ def layout_tab(name, fn, spec):
             panels.append(pick_panel(key, PARAMS[key]["options"]))
         elif kind == "knob":
             pos[key] = (cx, cy)
-            kids.append(entry(key, knob_type(key), {"version": 1, "handleName": "Data"}, "%d %d %d %d" % (cx - KNOB // 2, cy - KNOB // 2, KNOB, KNOB),
-                              remap=P(key), focus="Yes"))
-            kids.append(label("%d %d 120 26" % (cx - 60, cy + 44), key, 21))
+            big = name == "PLAY" and key.startswith("play_v")
+            n = BIG if big else KNOB
+            kids.append(entry(key, T("xknob_big", "dk_xknob_big") if big else knob_type(key), {"version": 1, "handleName": "Data"},
+                              "%d %d %d %d" % (cx - n // 2, cy - n // 2, n, n), remap=P(key), focus="Yes"))
+            kids.append(label("%d %d 120 28" % (cx - 60, cy + n // 2 - (8 if big else -8)), key, 23 if big else 21))
         elif kind == "toggle":
             pos[key] = (cx, cy)
             button(kids, key, "%d %d 56 30" % (cx - 28, cy - 15), save(toggle_image(True), "tg_on.png"), save(toggle_image(False), "tg_off.png"))
@@ -492,7 +497,7 @@ def play_art(art):
     lead = T((30, 110, 128), (24, 80, 88))
     for k in ("play_v1", "play_v2", "play_v3", "play_v4"):
         x, y = PLAY_POS[k]
-        d.line((x, LCD_Y1 + 7, x, y - KNOB // 2 - 2), fill=lead, width=3)
+        d.line((x, LCD_Y1 + 7, x, y - BIG // 2 + 8), fill=lead, width=3)
     blue = T(BLUE, TEAL)
     for x0, x1, y, title in ((890, 1270, 296, "Voice"), (20, 620, 456, "Effect"), (660, 1260, 456, "Output")):
         d.line((x0, y, x1, y), fill=blue, width=2)
@@ -942,8 +947,9 @@ def preview(pages, arts, defs, open_list=None, suffix="", keyboard=False):
             if keyboard and cd["type"] == "Image" and e["componentData"]["name"] != "bg":
                 im.alpha_composite(Image.open(os.path.join(OUT, cd["data"]["image"])).convert("RGBA"), (x, y))
                 continue
-            if cd["type"] in ("xknob", "xknob_red", "dk_xknob", "xdial", "dk_xdial"):
-                f = {"xknob": "knob_xt", "xknob_red": "knob_xt_red", "dk_xknob": "dk_knob_xt", "xdial": "dial_xt", "dk_xdial": "dk_dial_xt"}[cd["type"]]
+            if cd["type"] in ("xknob", "xknob_red", "dk_xknob", "xdial", "dk_xdial", "xknob_big", "dk_xknob_big"):
+                f = {"xknob": "knob_xt", "xknob_red": "knob_xt_red", "dk_xknob": "dk_knob_xt", "xdial": "dial_xt", "dk_xdial": "dk_dial_xt",
+                     "xknob_big": "knob_xt_big", "dk_xknob_big": "dk_knob_xt_big"}[cd["type"]]
                 st = Image.open(os.path.join(OUT, f + ".png"))
                 fr = 20 if "dial" in f else 60
                 im.alpha_composite(st.crop((0, w * fr, w, w * (fr + 1))).convert("RGBA"), (x, y))
