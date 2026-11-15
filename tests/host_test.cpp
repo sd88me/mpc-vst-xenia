@@ -76,6 +76,7 @@ static void run(AEffect* e, int blocks, const std::vector<std::vector<uint8_t>>&
     g_rms = n ? std::sqrt(acc / n) : 0;
 }
 static void settle(AEffect* e, int blocks = 40) { run(e, blocks); xenia_dbg_tick(e); }
+static void key(AEffect* e, int i) { e->setParameter(e, i, 1.0f); settle(e, 30); e->setParameter(e, i, 0.0f); settle(e, 10); run(e, 80); }   // > 250 ms apart
 
 static AEffect* open(const char* what, float rate = 44100.f)
 {
@@ -133,7 +134,7 @@ int main(int argc, char** argv)
     a->dispatcher(a, effGetEffectName, 0, 0, name, 0);
     CHECK(a->uniqueID == (VstInt32)0x58656e41, "uid XenA (%08x)", (unsigned)a->uniqueID);
     CHECK(!std::strcmp(name, XENIA_EXPECT_NAME), "name \"%s\"", name);
-    CHECK(a->numParams == 347, "347 params: 332 frozen + 15 appended (%d)", a->numParams);
+    CHECK(a->numParams == 391, "391 params: 332 frozen + 59 appended (%d)", a->numParams);
     CHECK(a->dispatcher(a, effGetVendorVersion, 0, 0, nullptr, 0) == 1002, "version 1002");
     {
         int bad = 0, i = 0;
@@ -148,7 +149,7 @@ int main(int argc, char** argv)
             i++;
         }
         if (f) std::fclose(f);
-        CHECK(f && bad == 0 && i == 347, "order = params.lock (%d keys, %d differ)", i, bad);
+        CHECK(f && bad == 0 && i == 391, "order = params.lock (%d keys, %d differ)", i, bad);
         CHECK(!std::strcmp(g_pspecs[0].key, "bank_index") && !std::strcmp(g_pspecs[253].key, "ui_open"), "0 = bank_index, 253 = ui_open");
     }
     CHECK(waitReady(a), "booted (%s)", eng(a, "loading_status").c_str());
@@ -281,10 +282,26 @@ int main(int argc, char** argv)
         a->setParameter(a, ADD, 1.0f);
         settle(a);
         char pn[64] = {};
-        a->dispatcher(a, effGetProgramNameIndexed, 1, 0, pn, 0);
         std::string want = nm.size() > 4 ? nm.substr(4) : nm;
         while (!want.empty() && want.back() == ' ') want.pop_back();
-        CHECK(std::string(pn) == "1 " + want && a->getParameter(a, ADD) == 0.f, "+FAV: program 1 = \"%s\", button back to 0", pn);
+        const int KBO = idx("kb_open"), FNM = idx("fav_name");
+        CHECK(a->getParameter(a, KBO) == 1.f && disp(a, FNM) == want + "_", "+FAV opens the keyboard on \"%s\"", disp(a, FNM).c_str());
+        a->setParameter(a, ADD, 0.0f);
+        key(a, idx("kb_cancel"));
+        a->dispatcher(a, effGetProgramNameIndexed, 1, 0, pn, 0);
+        CHECK(a->getParameter(a, KBO) == 0.f && std::string(pn) == "1 --", "CANCEL closes it, nothing stored (\"%s\")", pn);
+        run(a, 100);
+        a->setParameter(a, ADD, 1.0f);
+        settle(a);
+        a->setParameter(a, ADD, 0.0f);
+        key(a, idx("kb_bksp"));
+        key(a, idx("kb_z"));
+        const std::string typed = want.substr(0, want.size() - 1) + (want.size() > 1 && want[want.size() - 2] == ' ' ? "Z" : "z");
+        CHECK(disp(a, FNM) == typed + "_", "typing: \"%s\"", disp(a, FNM).c_str());
+        key(a, idx("kb_save"));
+        a->dispatcher(a, effGetProgramNameIndexed, 1, 0, pn, 0);
+        CHECK(std::string(pn) == "1 " + typed && a->getParameter(a, ADD) == 0.f && a->getParameter(a, KBO) == 0.f,
+              "SAVE: program 1 = \"%s\", keyboard closed", pn);
         a->setParameter(a, ADD, 0.0f);
         a->setParameter(a, NEXT, 1.0f);
         settle(a, 300);

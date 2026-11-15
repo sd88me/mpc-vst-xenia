@@ -28,6 +28,7 @@
 
 extern "C" {
 #include "engine.h"
+extern "C" void xenia_render_float(void* inst, float* out, int frames);   // src/dsp/xenia_engine.cpp: the ring as float stereo
 }
 #include "params_gen.h"
 
@@ -275,6 +276,7 @@ public:
         const PSpec& s = g_pspecs[index];
         char buf[128];
         if (index == kSkin) { out = plain >= 0.5f ? "Shadow Edition" : "Classic"; return true; }
+        if (index == kFavName) { std::lock_guard<std::mutex> g(kbMu_); out = kbName_ + "_"; return true; }
         if (s.flags & kText) { out = engineGet(s.key, buf, sizeof buf) ? buf : ""; return true; }   // readouts and tile names
         if (s.flags & (kMomentary | kUi | kReserved)) { out = ""; return true; }
         return false;
@@ -291,6 +293,7 @@ public:
     {
         if (!data || !size) return;
         ignoreProgUntil_.store(nowMs() + 2000);   // the host re-picks the saved program after a project load: the project's sound wins
+        closeKeyboard(true);                      // a project saved with the keyboard open restored kb_open = 1: push it closed
         applyState(std::string(reinterpret_cast<const char*>(data), strnlen(reinterpret_cast<const char*>(data), size)));
     }
 
@@ -301,6 +304,7 @@ public:
         const std::string s(data, strnlen(data, size));
         if (!isState(s)) return false;
         ignoreProgUntil_.store(nowMs() + 2000);
+        closeKeyboard(true);
         applyState(s);
         return true;
     }
@@ -314,11 +318,11 @@ private:
     {
         if (std::fabs(step_ - 1.0) < 1e-9)
         {
-            eng_->render(inst_, pcm_, n);
+            xenia_render_float(inst_, pcm_, n);
             for (int i = 0; i < n; ++i)
             {
-                L[i] = pcm_[2 * i] * (1.0f / 32768.0f);
-                if (R) R[i] = pcm_[2 * i + 1] * (1.0f / 32768.0f);
+                L[i] = pcm_[2 * i];
+                if (R) R[i] = pcm_[2 * i + 1];
             }
             return;
         }
@@ -327,9 +331,9 @@ private:
             while (have_ < 2 || frac_ >= 1.0)   // keep two source frames: [0] at frac_ = 0, [1] at 1
             {
                 if (have_ >= 2) { src_[0] = src_[2]; src_[1] = src_[3]; --have_; frac_ -= 1.0; }
-                if (srcPos_ >= srcLen_) { eng_->render(inst_, pcm_, kChunk); srcPos_ = 0; srcLen_ = kChunk; }
-                src_[have_ * 2] = pcm_[srcPos_ * 2] * (1.0f / 32768.0f);
-                src_[have_ * 2 + 1] = pcm_[srcPos_ * 2 + 1] * (1.0f / 32768.0f);
+                if (srcPos_ >= srcLen_) { xenia_render_float(inst_, pcm_, kChunk); srcPos_ = 0; srcLen_ = kChunk; }
+                src_[have_ * 2] = pcm_[srcPos_ * 2];
+                src_[have_ * 2 + 1] = pcm_[srcPos_ * 2 + 1];
                 ++srcPos_;
                 ++have_;
             }
@@ -529,6 +533,13 @@ private:
             }
         // Many values at once or new text: one display update, at most every 100 ms. Never periodically: it re-lists programs and
         // closes the PRESET menu.
+        if (kbDirty_.exchange(false))   // the keyboard opened or closed, or the typed name changed
+        {
+            pushValue(kKbOpen, kbOpen_.load() ? 1.0f : 0.0f);
+            counter_ = (counter_ + 1) % 1024;
+            pushValue(kFavName, (float)counter_);
+            textChanged = true;
+        }
         if (textChanged || changed > 8) wantDisplay_ = true;
         if (wantDisplay_ && (force || now - lastDisplay_ >= 100))
         {
@@ -621,9 +632,23 @@ private:
 
     void localChanged(int index, float plain)
     {
+        if (!(g_pspecs[index].flags & kMomentary)) return;   // kb_open / fav_name: set by the plugin only
         if (plain < 0.5f) { held_[index].store(false); return; }
         if (held_[index].exchange(true)) return;
         release_[index].store(true);   // a momentary: back to 0 on the next worker pass
+        const long long now = nowMs();
+        if (now - lastFire_[(size_t)index] < 250) return;   // the second report of one tap
+        lastFire_[(size_t)index] = now;
+        if (index >= kKbFirst && index < kKbFirst + kKbCount)
+        {
+            if (!kbOpen_.load()) return;
+            const int k = index - kKbFirst, nchars = (int)sizeof kKbChars - 1;
+            if (k == nchars + 3) { closeKeyboard(); return; }   // CANCEL
+            if (k == nchars + 4) { saveTyped(); return; }       // SAVE
+            { std::lock_guard<std::mutex> g(kbMu_); typeKey(k); }
+            kbDirty_.store(true);
+            return;
+        }
         if (index == kRandom)
         {
             engineSet("random_sound", "1");
@@ -631,7 +656,7 @@ private:
                 if (!std::strcmp(g_pspecs[i].key, "preset") || !std::strcmp(g_pspecs[i].key, "bank_index")) { told_[i].store(-1.0e9f); hostMoved_[i].store(true); }
             return;
         }
-        if (index == kFavAdd)
+        if (index == kFavAdd)   // open the naming keyboard on the sound's name; the sound is taken now, SAVE stores it
         {
             if (!engineReady()) return;
             Fav v;
@@ -645,16 +670,14 @@ private:
                 v.name = *p ? p : b;
             }
             while (!v.name.empty() && v.name.back() == ' ') v.name.pop_back();
-            if (v.name.empty()) v.name = "Favourite";
             if (!isState(v.state)) return;
-            v.used = true;
-            int slot = -1;
+            if (v.name.size() > (size_t)kFavNameMax) v.name.resize((size_t)kFavNameMax);
             {
-                std::lock_guard<std::mutex> g(favMu_);
-                for (int i = 0; i < kFavSlots && slot < 0; ++i) if (!favs_[(size_t)i].used) slot = i;
-                if (slot >= 0) { favs_[(size_t)slot] = v; nameProgram(slot); }
+                std::lock_guard<std::mutex> g(kbMu_);
+                kbName_ = v.name; kbShift_ = false; kbState_ = v.state;
             }
-            if (slot >= 0) favDirty_.store(true);
+            kbOpen_.store(true);
+            kbDirty_.store(true);
             return;
         }
         if (index == kFavDel)   // the favourite that is picked now
@@ -669,6 +692,48 @@ private:
             }
             if (had) favDirty_.store(true);
         }
+    }
+
+    void typeKey(int k)   // kbMu_ held; k = 0 .. kKbCount - 1
+    {
+        const int nchars = (int)sizeof kKbChars - 1;
+        if (k <= nchars)   // a character or space
+        {
+            if ((int)kbName_.size() >= kFavNameMax) return;
+            char c = k < nchars ? kKbChars[k] : ' ';
+            const bool cap = kbName_.empty() || kbName_.back() == ' ';
+            if (c >= 'A' && c <= 'Z')
+            {
+                if (cap == kbShift_) c = (char)(c - 'A' + 'a');   // capital at the start and after a space; SHIFT flips the next letter
+                kbShift_ = false;
+            }
+            kbName_ += c;
+        }
+        else if (k == nchars + 1) { if (!kbName_.empty()) kbName_.pop_back(); }
+        else if (k == nchars + 2) kbShift_ = !kbShift_;
+    }
+
+    void closeKeyboard(bool force = false)
+    {
+        if (kbOpen_.exchange(false) || force) kbDirty_.store(true);
+    }
+
+    void saveTyped()   // the sound taken when +FAV opened the keyboard, under the typed name, in the first free slot
+    {
+        Fav v;
+        { std::lock_guard<std::mutex> g(kbMu_); v.name = kbName_; v.state = kbState_; }
+        closeKeyboard();
+        while (!v.name.empty() && v.name.back() == ' ') v.name.pop_back();
+        if (v.name.empty()) v.name = "Favourite";
+        if (!isState(v.state)) return;
+        v.used = true;
+        int slot = -1;
+        {
+            std::lock_guard<std::mutex> g(favMu_);
+            for (int i = 0; i < kFavSlots && slot < 0; ++i) if (!favs_[(size_t)i].used) slot = i;
+            if (slot >= 0) { favs_[(size_t)slot] = v; nameProgram(slot); }
+        }
+        if (slot >= 0) favDirty_.store(true);
     }
 
 public:
@@ -702,6 +767,11 @@ private:
     std::mutex stateMu_;
     std::string pendingState_;                 // a project's state given before the engine booted
     std::mutex favMu_;
+    std::mutex kbMu_;
+    std::string kbName_, kbState_;             // the name being typed on the keyboard, the sound +FAV took
+    bool kbShift_ = false;
+    std::atomic<bool> kbOpen_{false}, kbDirty_{false};
+    std::vector<long long> lastFire_ = std::vector<long long>(kNumParams, 0);
     std::vector<Fav> favs_;
     std::atomic<bool> favDirty_{false};
     std::string skinFile_;
@@ -714,7 +784,7 @@ private:
     double step_ = 1.0, frac_ = 0;
     int have_ = 0, srcPos_ = 0, srcLen_ = 0;
     float src_[4] = {0, 0, 0, 0};
-    int16_t pcm_[kChunk * 2] = {0};
+    float pcm_[kChunk * 2] = {0};   // float from the engine: a loud sound passes full scale instead of clipping
     uint32_t lastRev_ = 0;
     int counter_ = 0;
     long tick_ = 0;
