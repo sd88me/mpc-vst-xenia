@@ -135,7 +135,7 @@ int main(int argc, char** argv)
     CHECK(a->uniqueID == (VstInt32)0x58656e41, "uid XenA (%08x)", (unsigned)a->uniqueID);
     CHECK(!std::strcmp(name, XENIA_EXPECT_NAME), "name \"%s\"", name);
     CHECK(a->numParams == 391, "391 params: 332 frozen + 59 appended (%d)", a->numParams);
-    CHECK(a->dispatcher(a, effGetVendorVersion, 0, 0, nullptr, 0) == 1002, "version 1002");
+    CHECK(a->dispatcher(a, effGetVendorVersion, 0, 0, nullptr, 0) == 1100, "version 1100");
     {
         int bad = 0, i = 0;
         FILE* f = std::fopen("params.lock", "r");
