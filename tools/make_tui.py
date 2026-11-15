@@ -9,6 +9,7 @@ controls, at most four blocks per sub-tab (more blocks -> sub-tabs with the same
     python3 tools/make_tui.py              # -> skins/   (build-sdk.sh copies it to Plugin Skins/)
     python3 tools/make_tui.py --preview    # also docs/skin-preview/<tab>.png, composed offline (Titillium at the MPC's text scale)"""
 import hashlib, json, os, re, shutil, sys
+import xenia_knobs as K
 from PIL import Image, ImageChops, ImageDraw, ImageFilter, ImageFont
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -118,16 +119,18 @@ def label(b, key, h=20, colour=None, just="horizontallyCentred verticallyCentred
     return entry("label", "Label", {"version": 1, "textStyle": text_style(h, colour, just, style), "type": "Value", "handleName": "Data"}, b, P(key))
 
 
-KNOB = 64                     # the drawn knob: the xtDefault encoder at 64 px (1.x: r = 29 + its shadow)
+KNOB = 72                     # the drawn knob (tools/xenia_knobs.py): the cone with a value fill ring, at 72 px
+BIG = 104                     # Play 1-4 on PLAY
+DIAL, DIAL_FRAMES = 240, 64   # PLAY's red data dial (240 x 64 frames: under the MPC's 16384 px image height)
 FOCUS = {"version": 1, "backgroundColour": "00000000", "outlineColour": "ff1676b2", "backgroundInset": 4.0, "outlineThickness": 2.0}
 
 
 def definitions():
-    def knob_def(strip):
+    def knob_def(strip, size=KNOB, frames=101):
         return component([
-            entry("focus", "Focus", FOCUS, "-6 -6 %d %d" % (KNOB + 12, KNOB + 12), visible="WhenFocussed"),
-            entry("knob", "Knob", {"version": 3, "knobType": "FilmStrip", "filmStrip": strip, "numFrames": 101, "invert": False,
-                                   "dragOrientation": "Vertical", "handleName": "Data"}, "0 0 %d %d" % (KNOB, KNOB)),
+            entry("focus", "Focus", FOCUS, "-6 -6 %d %d" % (size + 12, size + 12), visible="WhenFocussed"),
+            entry("knob", "Knob", {"version": 3, "knobType": "FilmStrip", "filmStrip": strip, "numFrames": frames, "invert": False,
+                                   "dragOrientation": "Vertical", "handleName": "Data"}, "0 0 %d %d" % (size, size)),
         ], actions=[act("Mouse Down", "Q-Link"), act("Double Click", "Show Overlay", "knob overlay"), act("Enter Pressed", "Show Overlay", "knob overlay")])
     knob = knob_def("knob_xt.png")
     knob_overlay = component([entry("overlay", "KnobOverlay", Obj(
@@ -135,7 +138,10 @@ def definitions():
         ("actions", [{"version": 1, "onAction": "Focus Lost", "handler": "Focus Lost", "handleName": "Focus Lost", "additionalData": ""}]),
         ("overlayType", "Knob With Header"), ("scaleType", "Linear"), ("polarityType", "Unipolar"),
         ("showMinusSign", True), ("handleName", "Data")), "0 0 1280 800", focus="Yes")], ignore=True)
-    out = [{"key": "xknob", "value": knob}, {"key": "xknob_red", "value": knob_def("knob_xt_red.png")}, {"key": "knob overlay", "value": knob_overlay}]
+    out = [{"key": "xknob", "value": knob}, {"key": "xknob_red", "value": knob_def("knob_xt_red.png")}, {"key": "knob overlay", "value": knob_overlay},
+           {"key": "dk_xknob", "value": knob_def("dk_knob_xt.png")}, {"key": "xdial", "value": knob_def("dial_xt.png", DIAL, DIAL_FRAMES)},
+           {"key": "dk_xdial", "value": knob_def("dk_dial_xt.png", DIAL, DIAL_FRAMES)},
+           {"key": "xknob_big", "value": knob_def("knob_xt_big.png", BIG)}, {"key": "dk_xknob_big", "value": knob_def("dk_knob_xt_big.png", BIG)}]
     # LCD fields: an invisible value slider over the live bank / sound name, so the data wheel, a Q-Link or a drag steps it
     for w, h in sorted(FIELDS):
         ts = {"version": 1, "font": {"version": 1, "name": "Roboto", "style": "Regular", "height": 20.0}, "colour": "00000000",
@@ -233,26 +239,16 @@ def list_key(w, h, caption, lit, size=15):
 
 
 def knob_strip():
-    """The xtDefault encoder (vst/images/knob_xenia.png: 101 frames of 104 px) at KNOB px."""
-    src = Image.open(os.path.join(VST_IMG, "knob_xenia.png")).convert("RGBA")
-    n, fh = 101, src.width
-    out = Image.new("RGBA", (KNOB, KNOB * n), (0, 0, 0, 0))
-    for i in range(n):
-        out.paste(src.crop((0, i * fh, fh, (i + 1) * fh)).resize((KNOB, KNOB), Image.LANCZOS), (0, i * KNOB))
-    save(out, "knob_xt.png")
-    red = out.copy()                       # the XT's red caps (Cutoff, Wavetable): the grey body turned red, the pointer cream
-    px = red.load()
-    for y in range(red.height):
-        for x in range(KNOB):
-            r, g, b, a = px[x, y]
-            if not a:
-                continue
-            if r - b > 60:                 # the orange pointer
-                px[x, y] = (250, 236, 214, a)
-            else:
-                l = (r + g + b) / 3.0
-                px[x, y] = (min(255, int(l * 2.5 + 18)), int(l * 0.42), int(l * 0.36), a)
-    save(red, "knob_xt_red.png")
+    """The knobs (tools/xenia_knobs.py: Vavra's cone, plain, with a value fill ring) and PLAY's red data dial, for the pass's skin:
+    Classic fills red (and the XT's red caps, Cutoff and Wavetable, get a red top), the Shadow Edition fills teal."""
+    K.FILL = T((226, 52, 44), TEAL)
+    K.TRACK, K.TRACK_HI, K.SHADOW = T(((150, 70, 0), (255, 196, 110), (90, 40, 0)), ((14, 14, 16), (90, 96, 100), (0, 0, 0)))
+    save(K.knob_strip(KNOB), "knob_xt.png")
+    save(K.knob_strip(BIG), "knob_xt_big.png")
+    if THEME == "classic":
+        K.FILL_RED = (255, 196, 60)
+        save(K.knob_strip(KNOB, red=True), "knob_xt_red.png")
+    save(K.dial_strip(DIAL, frames=DIAL_FRAMES), "dial_xt.png")
     return "knob_xt.png"
 
 
@@ -386,18 +382,36 @@ def parse_layout():
 RED_KNOBS = {"F1Cutoff", "Wave"}   # red caps on the Classic panel, as on the hardware (the Shadow Edition keeps them black)
 EXTRA_KNOBS = {"OSC": [("Wave", 584, 456)]}   # Wavetable is a pick-list in 1.x: a knob beside it turns through the tables
 
-# PLAY: status and stats move into the display, so the Engine section holds the keys: RANDOM / +FAV / -FAV, then PANIC / INIT PATCH
-PLAY_MOVE = {"all_notes_off": (996, 222), "init_patch": (1104, 222)}
+# PLAY, laid out like the XT's front (2026-11-15): the LCD in the teal ellipse, the red data dial at its end, Play 1-4 under the LCD on
+# leader lines (each under its quarter of LCD line 2), the keys 2 x 3 beside the dial, Voice under them, Effect and Output along the bottom.
+PLAY_POS = {"play_v1": (208, 318), "play_v2": (358, 318), "play_v3": (508, 318), "play_v4": (658, 318),
+            "play1": (208, 398), "play2": (358, 398), "play3": (508, 398), "play4": (658, 398),
+            "AllocationMode": (940, 360), "Assignment": (1064, 360), "Detune": (1192, 356),
+            "EffectType": (90, 540), "EffectParamA": (230, 536), "EffectParamB": (350, 536), "EffectParamC": (470, 536), "ChorusEnabled": (578, 536),
+            "AmpVolume": (735, 536), "Pan": (885, 536), "gain": (1035, 536), "dsp_clock": (1185, 536)}
+PLAY_CAPS = {"AllocationMode": "Alloc", "Assignment": "Assign", "Detune": "Detune", "EffectType": "Type", "EffectParamA": "Param A",
+             "EffectParamB": "Param B", "EffectParamC": "Param C", "ChorusEnabled": "Chorus", "AmpVolume": "Volume", "Pan": "Pan",
+             "gain": "Gain %", "dsp_clock": "DSP Clock"}
+PLAY_KEYS = [("random_patch", "RANDOM"), ("all_notes_off", "PANIC"), ("fav_add", "+ FAV"), ("init_patch", "INIT"), ("fav_del", "- FAV"), ("skin", "SKIN")]
+LCD_X0, LCD_X1, LCD_Y0, LCD_Y1 = 133, 733, 54, 192     # centred in the ellipse (14..232)
 
 
 def layout_tab(name, fn, spec):
     """One printed page at the layout.conf positions; one Page per sub-tab (same art, other Q-Link blocks)."""
     art = Image.open(os.path.join(VST_IMG, os.path.basename(spec["art"]))).convert("RGB")
-    if name == "PLAY":                # before the rings go on: clear the 1.x "Status" / "Stats" captions and the red bezel to plain panel
-        for x0, y0, x1, y1 in ((740, 158, 840, 182), (1050, 158, 1140, 182)):
-            art.paste(art.crop((x0 - 110, y0, x1 - 110, y1)), (x0, y0))
-        art.paste(art.crop((250, 116, 1280, 126)).resize((1030, 116)), (250, 0))
+    if name == "PLAY":                # a fresh panel: plain orange and the Xenia logo of the 1.x page, the rest drawn in play_display
+        logo = art.crop((60, 0, 252, 112)).resize((150, 88), Image.LANCZOS)
+        mask = Image.new("L", logo.size, 0)
+        lp, mp = logo.load(), mask.load()
+        for y in range(logo.height):
+            for x in range(logo.width):
+                r, g, b = lp[x, y][:3]
+                mp[x, y] = 0 if (r > 215 and b < 90 and 95 < g < 185) else 255   # the panel's orange round the logo stays out
+        art = Image.new("RGB", art.size, (255, 142, 10))
+        art.paste(logo, (14, 236), mask)
     art = panel(art, logo=name == "PLAY")
+    if name == "PLAY":
+        play_art(art)
     d = ImageDraw.Draw(art)
     pos, kids, panels = {}, [], []
     for kind, a in spec["items"]:
@@ -405,8 +419,24 @@ def layout_tab(name, fn, spec):
         if key not in PARAMS and kind != "stepper":
             continue
         cx, cy = int(a["cx"]), int(a["cy"]) - 86
+        if name == "PLAY":
+            if kind in ("readout", "stepper", "button"):
+                continue              # in the display / the key block (play_display)
+            cx, cy = PLAY_POS[key]
+            if key in PLAY_CAPS:
+                d.text((cx, cy - (52 if kind == "knob" else 34)), PLAY_CAPS[key], font=F(19, TIT_B), fill=T(INK, (220, 220, 214)), anchor="mm")
         if kind == "popup":
             w, h = int(a["w"]), max(int(a["h"]), 36)
+            if name == "PLAY":
+                w = {"AllocationMode": 116, "Assignment": 116, "EffectType": 112}.get(key, 136)
+                if key in ("play1", "play2", "play3", "play4"):   # Play 1-4's sources are their names on LCD line 2: a tap opens the list
+                    q = (LCD_X1 - LCD_X0) // 4
+                    x = LCD_X0 + q * (int(key[-1]) - 1)
+                    kids.append(entry(key + " field", "Button", {"version": 2, "onImage": CLEAR, "offImage": CLEAR, "buttonId": POPUPS.index(key) + 1,
+                                                                 "numButtonsInGroup": UI_STEPS, "handleName": "Data", "gestureBehaviour": GESTURE},
+                                      "%d %d %d %d" % (x, LCD_Y0 + 86, q, 50), remap=P("ui_open")))
+                    panels.append(pick_panel(key, PARAMS[key]["options"]))
+                    continue
             popup_box(d, cx, cy, w, h)
             kids.append(label("%d %d %d %d" % (cx - w // 2 + 8, cy - h // 2, w - 40, h), key, 21, "ff161a08", "left verticallyCentred"))
             kids.append(entry(key + " field", "Button", {"version": 2, "onImage": CLEAR, "offImage": CLEAR, "buttonId": POPUPS.index(key) + 1,
@@ -415,14 +445,15 @@ def layout_tab(name, fn, spec):
             panels.append(pick_panel(key, PARAMS[key]["options"]))
         elif kind == "knob":
             pos[key] = (cx, cy)
-            kids.append(entry(key, knob_type(key), {"version": 1, "handleName": "Data"}, "%d %d %d %d" % (cx - KNOB // 2, cy - KNOB // 2, KNOB, KNOB),
-                              remap=P(key), focus="Yes"))
-            kids.append(label("%d %d 120 26" % (cx - 60, cy + 44), key, 21))
+            big = name == "PLAY" and key.startswith("play_v")
+            n = BIG if big else KNOB
+            kids.append(entry(key, T("xknob_big", "dk_xknob_big") if big else knob_type(key), {"version": 1, "handleName": "Data"},
+                              "%d %d %d %d" % (cx - n // 2, cy - n // 2, n, n), remap=P(key), focus="Yes"))
+            kids.append(label("%d %d 120 28" % (cx - 60, cy + n // 2 - (8 if big else -8)), key, 23 if big else 21))
         elif kind == "toggle":
             pos[key] = (cx, cy)
             button(kids, key, "%d %d 56 30" % (cx - 28, cy - 15), save(toggle_image(True), "tg_on.png"), save(toggle_image(False), "tg_off.png"))
         elif kind == "button":
-            cx, cy = PLAY_MOVE.get(key, (cx, cy))
             key_button(kids, key, cx, cy, a["label"])
         elif name == "PLAY" and kind in ("readout", "stepper"):
             continue                  # drawn in the display below
@@ -442,6 +473,8 @@ def layout_tab(name, fn, spec):
     for sub, blocks in enumerate(auto_blocks(spec, pos, name)):
         p = Page(name, fn, sub)
         p.kids = list(kids) + list(panels)
+        if name == "PLAY":
+            keyboard(p.kids)
         for keys, rect in blocks:
             if name == "PLAY" and keys == ["Detune"]:
                 keys = ["Detune", "bank_index", "preset"]   # the row's free Q-Links step the bank and the sound in the display
@@ -450,22 +483,107 @@ def layout_tab(name, fn, spec):
     return pages, art
 
 
+def play_art(art):
+    """PLAY's printed panel (over the rings): the teal ellipse, the LCD in it, leader lines to Play 1-4, the Voice / Effect / Output rules."""
+    d = ImageDraw.Draw(art)
+    S = 4
+    big = Image.new("RGBA", (880 * S, 240 * S), (0, 0, 0, 0))
+    ImageDraw.Draw(big).ellipse((6 * S, 14 * S, 860 * S, 232 * S), fill=T((48, 150, 168), (34, 108, 116)) + (255,))
+    art.paste(big.resize((880, 240), Image.LANCZOS), (0, 0), big.resize((880, 240), Image.LANCZOS))
+    d = ImageDraw.Draw(art)
+    d.rounded_rectangle((LCD_X0 - 7, LCD_Y0 - 7, LCD_X1 + 7, LCD_Y1 + 7), 6, fill=(40, 44, 30))
+    display(d, LCD_X0, LCD_Y0, LCD_X1, LCD_Y1)
+    d.line((LCD_X0 + 6, LCD_Y0 + 28, LCD_X1 - 6, LCD_Y0 + 28), fill=(120, 140, 40), width=1)
+    lead = T((30, 110, 128), (24, 80, 88))
+    for k in ("play_v1", "play_v2", "play_v3", "play_v4"):
+        x, y = PLAY_POS[k]
+        d.line((x, LCD_Y1 + 7, x, y - BIG // 2 + 8), fill=lead, width=3)
+    blue = T(BLUE, TEAL)
+    for x0, x1, y, title in ((880, 1260, 296, "Voice"), (20, 620, 456, "Effect"), (660, 1260, 456, "Output")):
+        d.line((x0, y, x1, y), fill=blue, width=2)
+        f = F(21, TIT_B)
+        w = f.getlength(title) + 18
+        c = (x0 + x1) // 2
+        d.rectangle((c - w / 2, y - 14, c + w / 2, y + 14), fill=T((255, 142, 10), (50, 51, 53)))
+        d.text((c, y), title, font=f, fill=blue, anchor="mm")
+
+
 def play_display(art, d, kids):
-    """PLAY's header: one two-row display in the red bezel (bank | sound with step arrows; engine status | stats), and the patch keys."""
-    lens(art, (262, 0, 1278, 124), (420, 30, 1150, 94))
-    display(d, 420, 30, 1150, 94)
-    display_row(d, kids, 420, 1150, 30, 64, [(704, "bank_name", "bank_prev", "bank_next"),
-                                            (1150, "preset_name", "preset_prev", "preset_next")], 26)
-    d.line((426, 65, 1144, 65), fill=(120, 140, 40), width=1)
-    display_row(d, kids, 420, 1150, 66, 94, [(770, "loading_status", None, None), (1150, "engine_stats", None, None)], 18)
-    key_button(kids, "random_patch", 672, 222, "RANDOM")
-    key_button(kids, "fav_add", 780, 222, "+ FAV")
-    key_button(kids, "fav_del", 888, 222, "- FAV")
-    key_button(kids, "skin", 1212, 226, "SHADOW\nEDITION", h=92)   # latching: LED lit = the Shadow Edition skin (every Xenia); taller image (two caption lines), the cap lines up with the row
+    """PLAY's LCD (Xenia writes it in the XT's style): status | stats, then the sound and its bank (both step with the wheel), then
+    Play 1-4's source and value, each over its knob; the red data dial steps the sound; the keys 2 x 3 beside the dial."""
+    x0, x1, y0, y1 = LCD_X0, LCD_X1, LCD_Y0, LCD_Y1
+    kids.append(label("%d %d %d %d" % (x0 + 10, y0 + 1, 300, 26), "loading_status", 18, "ff161a08", "left verticallyCentred"))
+    kids.append(label("%d %d %d %d" % (x1 - 310, y0 + 1, 300, 26), "engine_stats", 18, "ff161a08", "right verticallyCentred"))
+    display_row(d, kids, x0, x1, y0 + 30, y0 + 82, [(x1 - 190, "preset_name", None, None), (x1, "bank_name", None, None)], 30)
+    q = (x1 - x0) // 4
+    for i in range(4):
+        cx = x0 + q * i + q // 2
+        kids.append(label("%d %d %d %d" % (cx - q // 2 + 4, y0 + 86, q - 8, 46), "play%d" % (i + 1), 24, "ff161a08", style="Bold"))
+        if i:
+            d.line((x0 + q * i, y0 + 94, x0 + q * i, y1 - 8), fill=(120, 140, 40), width=1)
+    dx, dy = ARC_CENTRE
+    kids.append(entry("preset dial", T("xdial", "dk_xdial"), {"version": 1, "handleName": "Data"},
+                      "%d %d %d %d" % (dx - DIAL // 2, dy - DIAL // 2, DIAL, DIAL), remap=P("preset"), focus="Yes"))
+    for i, (k, cap) in enumerate(PLAY_KEYS):
+        key_button(kids, k, 1112 + (i % 2) * 104, 52 + (i // 2) * 86, cap)
+
+
+KB_ROWS = [("1234567890", ["kb_bksp"]), ("QWERTYUIOP", []), ("ASDFGHJKL-", []), ("ZXCVBNM", ["kb_space"])]
+
+
+def kb_cap(w, h, text, lit):
+    """a key of the naming keyboard: an LCD-green cap with a dark rim; lit (held) = inverse"""
+    im = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+    d = ImageDraw.Draw(im)
+    d.rounded_rectangle((0, 3, w - 1, h - 1), 7, fill=(30, 26, 20, 255))
+    if lit:
+        d.rounded_rectangle((0, 3, w - 1, h - 1), 7, fill=LCD_INK + (255,), outline=LCD + (255,), width=2)
+    else:
+        d.rounded_rectangle((0, 0, w - 1, h - 5), 7, fill=LCD + (255,), outline=LCD_EDGE + (255,), width=2)
+    f = F(26, TIT_B)
+    while f.size > 12 and f.getlength(text) > w - 12:
+        f = F(f.size - 1, TIT_B)
+    d.text((w // 2, (h - 2) // 2 + (2 if lit else 0)), text, font=f, fill=(LCD if lit else LCD_INK) + (255,), anchor="mm")
+    return im
+
+
+def keyboard(kids):
+    """The naming keyboard for +FAV (Vavra's / Profit-5's): a full-page panel, the name being typed, 42 keys; shown while kb_open = 1,
+    over everything else on the page (added last)."""
+    ind = ["IndexedEnabling/1/2/Parameter %d" % LOCK.index("kb_open")]
+    im = Image.new("RGB", (1280, 628), T((255, 142, 10), (50, 51, 53)))
+    d = ImageDraw.Draw(im)
+    d.rounded_rectangle((20, 8, 1260, 620), 12, fill=T((48, 150, 168), (34, 108, 116)))
+    d.text((52, 52), "FAVOURITE NAME", font=F(24, TIT_B), fill=(255, 255, 255), anchor="lm")
+    d.rounded_rectangle((300, 24, 1232, 80), 7, fill=(40, 44, 30))
+    display(d, 304, 28, 1228, 76)
+    kids.append(entry("kb panel", "Image", {"version": 2, "imageType": "Regular", "colour": "0", "image": save(im, "kb_panel.png")},
+                      "0 0 1280 628", ind=ind))
+    kids.append(entry("kb name", "Label", {"version": 1, "textStyle": text_style(42, "ff161a08", "left verticallyCentred", "Bold"),
+                                           "type": "Value", "handleName": "Data"}, "316 24 900 56", P("fav_name"), ind=ind))
+    kw, kh, gap, x0, y0 = 98, 84, 8, 64, 100
+
+    def kbkey(k, cap, x, y, w):
+        on = save(kb_cap(w, kh, cap, True), "kb_%s_%d_on.png" % (k, w))
+        off = save(kb_cap(w, kh, cap, False), "kb_%s_%d_off.png" % (k, w))
+        kids.append(entry(k, "Button", {"version": 2, "onImage": on, "offImage": off, "buttonId": 1, "numButtonsInGroup": 1,
+                                        "handleName": "Data", "gestureBehaviour": GESTURE}, "%d %d %d %d" % (x, y, w, kh), remap=P(k), ind=ind))
+    for r, (chars, extra) in enumerate(KB_ROWS):
+        y = y0 + r * (kh + gap)
+        x = x0 + r * 30
+        for c in chars:
+            kbkey("kb_" + ("dash" if c == "-" else c.lower()), c, x, y, kw)
+            x += kw + gap
+        for k in extra:
+            kbkey(k, {"kb_bksp": "DELETE", "kb_space": "SPACE"}[k], x, y, 1216 - x)
+    y = y0 + 4 * (kh + gap)
+    kbkey("kb_shift", "SHIFT", x0, y, 220)
+    kbkey("kb_cancel", "CANCEL", 640 - 130, y, 260)
+    kbkey("kb_save", "SAVE", 1216 - 260, y, 260)
 
 
 def knob_type(key):
-    return "xknob_red" if THEME == "classic" and key in RED_KNOBS else "xknob"
+    return ("xknob_red" if key in RED_KNOBS else "xknob") if THEME == "classic" else "dk_xknob"
 
 
 def stepper(d, kids, cx, cy, w, h, get, prev, nxt):
@@ -479,7 +597,7 @@ def stepper(d, kids, cx, cy, w, h, get, prev, nxt):
 
 
 # ---- the Microwave XT panel print: red rings around the data encoder, a few thin cream sweeps -------------------------------
-ARC_CENTRE = (700, 40)       # where the XT's big red encoder sits (top middle); every page shares it, so the rings line up across tabs
+ARC_CENTRE = (930, 122)      # PLAY's red data dial, as on the XT; every page shares it, so the rings line up across tabs
 
 
 def panel(art, logo=False):
@@ -769,6 +887,7 @@ def banks_page(fn):
     p.qgroup((14, 8, 828, 60), ["bank_index", "preset"])
     if smoke:
         art = Image.alpha_composite(art.convert("RGBA"), layer).convert("RGB")
+    keyboard(p.kids)
     return p, art
 
 
@@ -809,7 +928,7 @@ def sample_text(key):
     return str(p.get("default", ""))
 
 
-def preview(pages, arts, defs, open_list=None, suffix=""):
+def preview(pages, arts, defs, open_list=None, suffix="", keyboard=False):
     os.makedirs(PREVIEW, exist_ok=True)
     for p in pages:
         if p.sub:
@@ -822,9 +941,18 @@ def preview(pages, arts, defs, open_list=None, suffix=""):
             ind = [h for h in e["bounds"].get("additionalInvalidatingHandles", []) if h.endswith("Parameter %d" % UI_INDEX)]
             if ind and ind[0].split("/")[1] != str(open_list):
                 continue
-            if cd["type"] in ("xknob", "xknob_red"):
-                st = Image.open(os.path.join(OUT, "knob_xt_red.png" if cd["type"] == "xknob_red" else "knob_xt.png"))
-                im.alpha_composite(st.crop((0, KNOB * 60, KNOB, KNOB * 61)).convert("RGBA"), (x, y))
+            kb = any(h.endswith("Parameter %d" % LOCK.index("kb_open")) for h in e["bounds"].get("additionalInvalidatingHandles", []))
+            if kb != keyboard and (keyboard or kb):
+                continue
+            if keyboard and cd["type"] == "Image" and e["componentData"]["name"] != "bg":
+                im.alpha_composite(Image.open(os.path.join(OUT, cd["data"]["image"])).convert("RGBA"), (x, y))
+                continue
+            if cd["type"] in ("xknob", "xknob_red", "dk_xknob", "xdial", "dk_xdial", "xknob_big", "dk_xknob_big"):
+                f = {"xknob": "knob_xt", "xknob_red": "knob_xt_red", "dk_xknob": "dk_knob_xt", "xdial": "dial_xt", "dk_xdial": "dk_dial_xt",
+                     "xknob_big": "knob_xt_big", "dk_xknob_big": "dk_knob_xt_big"}[cd["type"]]
+                st = Image.open(os.path.join(OUT, f + ".png"))
+                fr = 20 if "dial" in f else 60
+                im.alpha_composite(st.crop((0, w * fr, w, w * (fr + 1))).convert("RGBA"), (x, y))
             elif cd["type"] == "Label":
                 key = LOCK[int(e["handle remapping"]["map"][0]["value"].split()[1])]
                 ts = cd["data"]["textStyle"]
@@ -861,11 +989,11 @@ def main():
         shutil.rmtree(OUT)
     os.makedirs(OUT)
     save(Image.new("RGBA", (8, 8), (0, 0, 0, 0)), CLEAR)
-    knob_strip()
     spec, _ = parse_layout()
     global THEME
     passes = {}
     for THEME in ("classic", "shadow"):   # every page twice: the skin parameter shows one set (one TUI.json, no skin files to swap)
+        knob_strip()
         pages, arts = [], {}
         for fn, name in enumerate(TAB_ORDER):
             if name == "BANKS":
@@ -904,6 +1032,7 @@ def main():
         preview([p for p in pages if p.name == "OSC"], arts, dd, open_list=POPUPS.index("Wave") + 1)
         preview([p for p in pages if p.name == "SLOTS 1-8"], arts, dd, open_list=POPUPS.index("Slot1Destination") + 1)
         preview([p for p in pages if p.name == "PLAY"], arts, dd, open_list=POPUPS.index("EffectType") + 1)
+        preview([p for p in pages if p.name == "PLAY"], arts, dd, keyboard=True, suffix="_keyboard")
         preview([p for p in passes["shadow"][0] if p.name == "PLAY"], passes["shadow"][1], dd, open_list=POPUPS.index("EffectType") + 1, suffix="_shadow")
     print("wrote", OUT, "-", len(tabs), "tabs (", len(TAB_ORDER), "keys),", len(os.listdir(OUT)), "files,", len(PICK_DEFS), "pick-lists")
 

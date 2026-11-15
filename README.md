@@ -15,14 +15,16 @@ mode (the XT's power-on state): the multi, wave editor and Global menu are not e
 ## What's in it
 - **Ten pages**: PLAY, BANKS, OSC, AMP & ARP, FILTER, ENV & LFO, WAVE ENV, MOD, SLOTS 1-8 and SLOTS 9-16. Every block of four controls is a Q-Link group
   that the MPC outlines on the page; pages with more controls have sub-pages (press the page key again).
-- **One display** on PLAY: bank and sound with step arrows, engine status and DSP load below. Tap the arrows, or turn the data wheel.
-- **Two skins**, switched with the **SHADOW EDITION** key on PLAY: **Classic**, the orange XT panel with its red rings, red Cutoff and Wavetable knobs,
-  and the **Shadow Edition**, the black panel with teal print. The choice applies to every Xenia on the MPC and stays until you switch again.
+- **PLAY like the XT's front**: an LCD in the teal ellipse (engine status and DSP load; the sound and its bank, which the data wheel steps; the sources of
+  Play 1-4, each over its knob: tap one to pick another), the red data dial that steps the sound, big Play 1-4 knobs on leader lines, the keys beside the
+  dial, then Voice, Effect and Output.
+- **Two skins**, switched with the **SKIN** key on PLAY: **Classic**, the orange XT panel with its red rings, red value rings and red Cutoff and Wavetable
+  knobs, and the **Shadow Edition**, the black panel with teal print and teal value rings. The choice applies to every Xenia on the MPC and stays until you switch again.
 - **Your own sound banks**: every Microwave XT SysEx dump (`.syx`, or a `.mid` that carries one) in the plugin folder's `xenia/banks/` becomes a bank after
   ROM banks A and B (up to 64 banks of 256 sounds). The BANKS page lists ten banks a page and 30 sounds a page; BANK, PRESET and MIDI program change and bank
   select reach them too. A project saved on a user sound keeps that sound even if the bank file changes later.
 - **RANDOM** picks a random sound from every loaded bank.
-- **Favourites in MPC's PRESET list**: **+ FAV** stores the current sound with your edits (up to 64), pick it from the PRESET list on the track or from a
+- **Named favourites in MPC's PRESET list**: **+ FAV** opens an on-screen keyboard with the sound's name; edit it and SAVE to store the sound with your edits (up to 64), pick it from the PRESET list on the track or from a
   pad, **− FAV** removes the favourite that is picked.
 - **Projects saved with 0.1.x still load** with their sound and edits. The parameter order is unchanged, so automation and Q-Link assignments carry over;
   only BANK and PRESET now run up to 63 and 255 (for the user banks).
@@ -41,10 +43,10 @@ starts; until it finds one the display says `No Microwave XT ROM in xenia/roms/`
 
 ## Install
 From [Releases](https://github.com/sd88me/mpc-vst-xenia/releases):
-- **`Xenia-1.0.2-mpc-sdk.zip`**: the plugin folder `sd88me - VST - Xenia`. Copy it into a `VST2 Plugins` folder on a drive of the MPC, put your ROM in
+- **`Xenia-1.1.0-mpc-sdk.zip`**: the plugin folder `sd88me - VST - Xenia`. Copy it into a `VST2 Plugins` folder on a drive of the MPC, put your ROM in
   its `xenia/roms/`, and restart the MPC. This needs MPC OS 3.10.1 or later, with **Preferences → Enhancements (Beta) → Enable Enhancements** and
   **External Plugin Support** switched on. Xenia is then listed under External VST Plugins → sd88me.
-- **`Xenia-1.0.2-mpc-aarch64.zip`**: unzip, copy the folder to the device and run `sh install.sh` as root (it stops and restarts MPC and backs up
+- **`Xenia-1.1.0-mpc-aarch64.zip`**: unzip, copy the folder to the device and run `sh install.sh` as root (it stops and restarts MPC and backs up
   `MPC.settings`; on a Live III the writable drive is `/nvme/Synths`: `sh install.sh -t /nvme/Synths`). It upgrades a 0.1.x install in place and keeps
   your ROM, sound banks, favourites and skin choice.
 

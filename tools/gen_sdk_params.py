@@ -11,6 +11,7 @@ import json, os, sys
 ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
 P = json.load(open(os.path.join(ROOT, "vst", "params.json")))["params"]
 LOCK = [l.strip() for l in open(os.path.join(ROOT, "params.lock")) if l.strip()]
+KB_CHARS = "1234567890QWERTYUIOPASDFGHJKLZXCVBNM-"
 APPENDED = [                     # (key, name, min, max, default, flags) appended after the released 332, in this order
     ("fav_add", "+ Favourite", 0, 1, 0, 4096 | 1 | 512),       # kLocal | kMomentary | kNoAuto: store the current sound as a PRESET-list favourite
     ("fav_del", "- Favourite", 0, 1, 0, 4096 | 1 | 512),       # remove the current favourite
@@ -22,6 +23,13 @@ APPENDED = [                     # (key, name, min, max, default, flags) appende
     ("bank_page_text", "Bank Page", 0, 1023, 0, 2 | 512),
     # skin switch (2026-11-13): 0 Classic, 1 Shadow Edition. kLocal: one setting for the whole MPC (<plugin folder>/xenia-skin.txt)
     ("skin", "Skin", 0, 1, 0, 4096 | 512),
+    # the naming keyboard for +FAV (Vavra's / Profit-5's, 2026-11-15): the typed name (a text readout), the keyboard's visibility, its keys
+    ("fav_name", "Favourite Name", 0, 1023, 0, 2 | 4096 | 512),
+    ("kb_open", "Keyboard", 0, 1, 0, 16 | 4096 | 512),
+] + [("kb_" + ("dash" if c == "-" else c.lower()), "Key " + c, 0, 1, 0, 1 | 4096 | 512) for c in KB_CHARS] + [
+    ("kb_space", "Key Space", 0, 1, 0, 1 | 4096 | 512), ("kb_bksp", "Key Delete", 0, 1, 0, 1 | 4096 | 512),
+    ("kb_shift", "Key Shift", 0, 1, 0, 1 | 4096 | 512), ("kb_cancel", "Key Cancel", 0, 1, 0, 1 | 4096 | 512),
+    ("kb_save", "Key Save", 0, 1, 0, 1 | 4096 | 512),
 ]
 # Ranges widened for the user banks (the order is unchanged; 1.x: BANK 0..1 = ROM A/B, PRESET 0..99). A bank now holds up to 256 sounds.
 RANGE = {"bank_index": (0, 63), "preset": (0, 255)}
@@ -104,6 +112,10 @@ out += ["", "static const PSpec g_pspecs[] = {"] + rows + ["};",
         "static const int kNumPopups = %d;" % len(popups),
         "static const int kFavAdd = %d, kFavDel = %d, kRandom = %d, kFavSlots = 64;" % (len(keys) + 79, len(keys) + 80, len(keys) + 81),
         "static const int kSkin = %d;               // the skin switch (kLocal, global)" % LOCK.index("skin"),
+        "static const int kFavName = %d, kKbOpen = %d, kKbFirst = %d, kKbCount = %d;" % (LOCK.index("fav_name"), LOCK.index("kb_open"),
+                                                                                      LOCK.index("kb_1"), len(KB_CHARS) + 5),
+        "static const char kKbChars[] = %s;   // the character keys from kKbFirst, then space, delete, shift, cancel, save" % json.dumps(KB_CHARS),
+        "static const int kFavNameMax = 16;",
         "static const int kFirstAppended = %d;     // engine keys appended after the released table follow the favourite keys" % (len(keys) + 79), ""]
 open(os.path.join(ROOT, "src", "params_gen.h"), "w").write("\n".join(out))
 print("src/params_gen.h: %d params (%d engine, ui_open, %d reserved, %d appended)" % (len(LOCK), len(P), len(popups) - 1, len(APPENDED)))
