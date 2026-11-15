@@ -518,7 +518,7 @@ def play_display(art, d, kids):
     q = (x1 - x0) // 4
     for i in range(4):
         cx = x0 + q * i + q // 2
-        kids.append(label("%d %d %d %d" % (cx - q // 2 + 4, y0 + 86, q - 8, 46), "play%d" % (i + 1), 19, "ff161a08"))
+        kids.append(label("%d %d %d %d" % (cx - q // 2 + 4, y0 + 86, q - 8, 46), "play%d" % (i + 1), 24, "ff161a08", style="Bold"))
         if i:
             d.line((x0 + q * i, y0 + 94, x0 + q * i, y1 - 8), fill=(120, 140, 40), width=1)
     dx, dy = ARC_CENTRE
