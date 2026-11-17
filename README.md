@@ -38,19 +38,32 @@ dropouts and the DSP load). On a Live III the DSP thread takes about 35% of one 
 ## You need your own ROM
 No ROM is included, and none may be shared. Put your own Microwave II or XT firmware in `xenia/roms/` inside the plugin folder: the 256 kB `.bin` image
 (it starts with the bytes `C0 DE`), or its two 128 kB halves, or an OS update `.mid` next to a full ROM (the highest version wins). The plugin looks when it
-starts; until it finds one the display says `No Microwave XT ROM in xenia/roms/`. Sound banks go in `xenia/banks/` (optional). The installer app's
-**Your ROMs and files** step can do both for you: it checks each file before copying it (the rules are in `release/userfiles.json`).
+starts; until it finds one the display says `No Microwave XT ROM in xenia/roms/`. Sound banks go in `xenia/banks/` (optional). With the older-format zip, the
+OpenMPC Plugin Manager's **Your ROMs and files** step can do both for you: it checks each file before copying it (the rules are in `release/userfiles.json`).
 
 ## Install
-From [Releases](https://github.com/sd88me/mpc-vst-xenia/releases):
-- **`Xenia-1.1.0-mpc-sdk.zip`**: the plugin folder `sd88me - VST - Xenia`. Copy it into a `VST2 Plugins` folder on a drive of the MPC, put your ROM in
-  its `xenia/roms/`, and restart the MPC. This needs MPC OS 3.10.1 or later, with **Preferences → Enhancements (Beta) → Enable Enhancements** and
-  **External Plugin Support** switched on. Xenia is then listed under External VST Plugins → sd88me.
-- **`Xenia-1.1.0-mpc-aarch64.zip`**: unzip, copy the folder to the device and run `sh install.sh` as root (it stops and restarts MPC and backs up
-  `MPC.settings`; on a Live III the writable drive is `/nvme/Synths`: `sh install.sh -t /nvme/Synths`). It upgrades a 0.1.x install in place and keeps
-  your ROM, sound banks, favourites and skin choice.
+There are two plugin formats. Use one of them, not both: they are the same plugin.
 
-Use one of the two, not both: they are the same plugin.
+| Plugin format | Zip | How it is installed | Plugin folder |
+|---|---|---|---|
+| **SDK format** (MPC OS 3.10.1 or later) | `Xenia-<version>-mpc-sdk.zip` | By hand: unzip it, copy the folder `sd88me - VST - Xenia` into `VST2 Plugins` at the root of a drive the MPC can see, turn on **Preferences > Enhancements (Beta) > Enable Enhancements** and **External Plugin Support**, and restart the MPC | `VST2 Plugins/sd88me - VST - Xenia/` on that drive |
+| **Older format** (plugins listed in `MPC.settings`) | `Xenia-<version>-mpc-aarch64.zip` | With the **OpenMPC Plugin Manager**, or by hand over SSH with the zip's `install.sh` (needs root access; on a Live III add `-t /nvme/Synths`; the zip's `INSTALL.md` has the details) | `sd88me - VST - Xenia/` in the Synths folder it was installed to |
+
+The zips are on [Releases](https://github.com/sd88me/mpc-vst-xenia/releases).
+
+### Adding your ROM
+Your ROM goes in the plugin folder's `xenia/roms/` (the zip already has the folder), for example
+`VST2 Plugins/sd88me - VST - Xenia/xenia/roms/`. Sound banks go in `xenia/banks/` (optional).
+
+| Plugin format | How to add your ROM |
+|---|---|
+| SDK format | By hand: over USB, or with the MPC's file browser. |
+| Older format, with the OpenMPC Plugin Manager | Use its **Your ROMs and files** step: it checks each file and copies it into the right folder. Or copy them by hand. |
+| Older format, with `install.sh` | By hand: with `scp`, over USB, or with the MPC's file browser. |
+
+### Upgrading
+- **SDK format:** copy the new folder over the old one (merge it, don't delete the old folder first) so your ROM and your sound banks, favourites and skin choice stay.
+- **Older format:** the OpenMPC Plugin Manager and `install.sh` upgrade in place and keep your ROM and your sound banks, favourites and skin choice.
 
 ![The OSC page, Classic skin](docs/screenshots/xenia-osc.png)
 
