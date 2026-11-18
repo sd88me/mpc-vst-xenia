@@ -67,6 +67,53 @@ Your ROM goes in the plugin folder's `xenia/roms/` (the zip already has the fold
 
 ![The OSC page, Classic skin](docs/screenshots/xenia-osc.png)
 
+## Backing up your favourites and sounds
+
+Your favourites and your own files are kept in the plugin folder on the MPC, not in your projects (a project keeps only the sound its
+track uses). Back them up before you update the plugin or MPC OS, reset the device, or move to another MPC. These are the files to keep,
+inside the plugin folder `sd88me - VST - Xenia`:
+
+| File or folder | What it holds |
+|---|---|
+| `xenia-favourites.dat` | your favourites (+FAV) |
+| `xenia/banks/` | your sound banks |
+| `xenia/roms/` | your ROM |
+| `xenia-skin.txt` | your skin choice |
+
+Your ROMs are yours to keep with your backup, but don't share them.
+
+### Where the plugin folder is
+It is in `VST2 Plugins` on one of the MPC's drives, or in a Synths folder (`/sdcard/Synths`, or `/nvme/Synths` on a Live III),
+depending on how Xenia was installed. Over SSH (root access), this prints its path:
+
+```bash
+ssh root@<device-ip> 'find /sdcard /nvme /media -maxdepth 3 -type d -name "sd88me - VST - Xenia" 2>/dev/null'
+```
+
+### Backing up
+- **The plugin folder is on an SD card or USB drive:** plug the drive into a computer and copy the files above to it.
+- **Over SSH**, from a computer: this copies the whole plugin folder into one file, `xenia-backup.tar`. Put the folder that holds the
+  plugin folder (the path above without its last part) in place of `<parent folder>`:
+
+  ```bash
+  ssh root@<device-ip> 'cd "<parent folder>" && tar cf - "sd88me - VST - Xenia"' > xenia-backup.tar
+  ```
+
+### Restoring
+Install Xenia first (on the new device, or after the reset or update), then put back only the files above. Don't copy the whole
+old folder over the new one: that would put the old version of the plugin back too.
+
+- **From a drive:** copy the files back to the same places in the new plugin folder.
+- **Over SSH:** unpack the backup on your computer and send the files back. List only the ones your backup has, and put the new
+  plugin folder's path (found as above) in place of `<plugin folder>`:
+
+  ```bash
+  mkdir xenia-backup && tar xf xenia-backup.tar -C xenia-backup
+  tar cf - -C "xenia-backup/sd88me - VST - Xenia" "xenia-favourites.dat" "xenia/banks" "xenia/roms" "xenia-skin.txt" | ssh root@<device-ip> 'cd "<plugin folder>" && tar xf -'
+  ```
+
+Then remove Xenia from its tracks and add it again (or reopen the project), so it reads the restored files.
+
 ## Building
 Needs Docker (the aarch64 cross compiler image is built on first use), Python 3 with Pillow, a checkout of Akai's MPC Plugin SDK (`MPC_SDK`, default
 `~/mpc-plugin-builder-sdk`) and of [mpc-vst-plugins](https://github.com/sd88me/mpc-vst-plugins) (`MPC_VST`, for `wrapper/engine.h`):
